@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>로컬 퀴즈쇼</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 20px; }
+        button { width: 100%; padding: 20px; margin: 10px 0; font-size: 1.2rem; cursor: pointer; }
+        #log { border: 1px solid #ccc; padding: 10px; height: 200px; overflow-y: scroll; }
+    </style>
+</head>
+<body>
+    <h1>🎮 퀴즈 서바이벌</h1>
+    <input type="text" id="nickname" placeholder="닉네임 입력">
+    <hr>
+    <button onclick="sendAnswer('A')" style="background: #ff4757; color:white;">A</button>
+    <button onclick="sendAnswer('B')" style="background: #1e90ff; color:white;">B</button>
+    
+    <h3>실시간 상황</h3>
+    <div id="log"></div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const nicknameInput = document.getElementById('nickname');
+        const logDiv = document.getElementById('log');
+
+        function sendAnswer(choice) {
+            const nickname = nicknameInput.value || '무명';
+            socket.emit('submit_answer', { nickname, choice });
+        }
+
+        socket.on('show_result', (data) => {
+            const p = document.createElement('p');
+            p.innerText = `${data.nickname}님이 ${data.choice}를 선택했습니다!`;
+            logDiv.prepend(p);
+        });
+    </script>
+</body>
+</html>
