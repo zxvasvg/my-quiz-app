@@ -1,106 +1,110 @@
 <!DOCTYPE html>
-<html lang="ko"> <head>
+<html lang="ko">
+<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>로컬 퀴즈쇼</title>
     <style>
-        body { font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; text-align: center; background: #f0f2f5; margin: 0; padding: 0; }
-        .screen { display: none; padding: 30px 20px; }
+        body { font-family: sans-serif; text-align: center; background: #f8f9fa; margin: 0; }
+        .screen { display: none; padding: 20px; }
         .active { display: block; }
-        
-        /* 유저 리스트 스타일 */
-        #user-list-container { 
-            background: white; border-radius: 10px; border: 1px solid #ddd;
-            max-height: 200px; overflow-y: auto; /* 세로 스크롤 */
-            margin: 20px auto; width: 80%; padding: 10px;
-        }
-        .user-item { padding: 8px; border-bottom: 1px solid #eee; font-weight: bold; color: #333; }
-        .user-item:last-child { border-bottom: none; }
-
-        button { padding: 15px 30px; font-size: 1.2rem; cursor: pointer; border-radius: 10px; border:none; background: #4a90e2; color: white; margin-top: 10px; width: 100%; max-width: 300px; }
-        input { padding: 12px; font-size: 1.1rem; border-radius: 5px; border: 1px solid #ccc; width: 80%; max-width: 280px; }
+        #user-list-container { background: white; border: 1px solid #ddd; max-height: 150px; overflow-y: auto; margin: 20px auto; width: 80%; padding: 10px; border-radius: 10px; }
+        .btn-choice { width: 100%; padding: 20px; margin: 10px 0; font-size: 1.1rem; border: none; border-radius: 15px; background: #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.1); cursor: pointer; transition: 0.2s; }
+        .btn-choice:active { transform: scale(0.98); background: #e2e2e2; }
+        #question-text { font-size: 1.4rem; font-weight: bold; margin-bottom: 20px; word-break: keep-all; }
     </style>
 </head>
 <body>
 
     <div id="screen-intro" class="screen active">
         <h1>🎮 퀴즈 서바이벌</h1>
-        <button onclick="changeScreen('screen-nickname')">참여하기</button>
+        <button onclick="changeScreen('screen-nickname')" style="padding:15px 30px; background:#4a90e2; color:white; border:none; border-radius:10px;">시작하기</button>
     </div>
 
     <div id="screen-nickname" class="screen">
-        <h2>닉네임을 입력하세요</h2>
-        <input type="text" id="nickname-input" placeholder="한글/영문 닉네임" autocomplete="off" spellcheck="false">
-        <br>
-        <button onclick="joinWaitingRoom()">대기실 입장</button>
+        <h2>닉네임 입력</h2>
+        <input type="text" id="nickname-input" placeholder="닉네임" autocomplete="off">
+        <button onclick="joinWaitingRoom()" style="margin-top:20px; padding:10px 20px;">대기실 입장</button>
     </div>
 
     <div id="screen-waiting" class="screen">
         <h2>대기실</h2>
-        <p>현재 접속자: <span id="count-num" style="color:red; font-weight:bold;">0</span>명</p>
-        
-        <div id="user-list-container">
-            <div id="user-list">
-                </div>
-        </div>
-
-        <p>방장의 시작을 기다리는 중...</p>
+        <p>접속자: <span id="count-num">0</span>명</p>
+        <div id="user-list-container"><div id="user-list"></div></div>
+        <p>방장이 게임을 시작할 때까지 대기...</p>
         <hr>
-        <div style="background: #eee; padding: 15px; border-radius: 10px;">
-            <p style="margin:0 0 10px 0;">방장 메뉴</p>
-            <input type="password" id="host-pw" placeholder="비밀번호" style="width:100px; font-size:0.8rem;">
-            <button onclick="startQuiz()" style="background:#27ae60; padding: 8px 15px; font-size:0.9rem; width:auto;">게임 시작</button>
-        </div>
+        <input type="password" id="host-pw" placeholder="비번" style="width:60px">
+        <button onclick="nextStep()" style="background:green; color:white; border:none; padding:5px 10px;">게임 시작 / 다음 문제</button>
     </div>
 
     <div id="screen-quiz" class="screen">
-        <h1>🚀 퀴즈 시작!</h1>
-        <p>화면을 주목해주세요.</p>
+        <div id="question-text">문제를 불러오는 중...</div>
+        <div id="choices-area">
+            <button class="btn-choice" onclick="sendAnswer(0)"></button>
+            <button class="btn-choice" onclick="sendAnswer(1)"></button>
+            <button class="btn-choice" onclick="sendAnswer(2)"></button>
+            <button class="btn-choice" onclick="sendAnswer(3)"></button>
+        </div>
+        <p id="wait-msg" style="display:none; color:blue;">정답 제출 완료! 다음 문제를 기다리세요.</p>
+    </div>
+
+    <div id="screen-result" class="screen">
+        <h1>🏆 최종 순위</h1>
+        <div id="rank-list"></div>
+        <button onclick="location.reload()" style="margin-top:20px;">처음으로 돌아가기</button>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
 
-        function changeScreen(screenId) {
+        function changeScreen(id) {
             document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-            document.getElementById(screenId).classList.add('active');
+            document.getElementById(id).classList.add('active');
         }
 
         function joinWaitingRoom() {
             const nick = document.getElementById('nickname-input').value;
-            if(!nick) return alert("닉네임을 입력해주세요!");
+            if(!nick) return alert("닉네임!");
             socket.emit('join_waiting_room', nick);
             changeScreen('screen-waiting');
         }
 
-        function startQuiz() {
+        function nextStep() {
             const pw = document.getElementById('host-pw').value;
             socket.emit('request_start', pw);
         }
 
-        // 서버로부터 유저 목록 업데이트 수신
-        socket.on('update_user_list', (userArray) => {
-            const listDiv = document.getElementById('user-list');
-            const countSpan = document.getElementById('count-num');
-            
-            countSpan.innerText = userArray.length;
-            listDiv.innerHTML = ''; // 기존 목록 초기화
+        function sendAnswer(idx) {
+            socket.emit('submit_answer', idx);
+            document.getElementById('choices-area').style.display = 'none';
+            document.getElementById('wait-msg').style.display = 'block';
+        }
 
-            userArray.forEach(name => {
-                const div = document.createElement('div');
-                div.className = 'user-item';
-                div.innerText = name;
-                listDiv.appendChild(div);
-            });
-
-            // 새 유저가 오면 자동으로 리스트 맨 아래로 스크롤
-            const container = document.getElementById('user-list-container');
-            container.scrollTop = container.scrollHeight;
+        socket.on('update_user_list', (users) => {
+            document.getElementById('count-num').innerText = users.length;
+            document.getElementById('user-list').innerHTML = users.map(u => `<div>${u}</div>`).join('');
         });
 
-        socket.on('game_started', () => changeScreen('screen-quiz'));
-        socket.on('error_msg', (msg) => alert(msg));
+        socket.on('next_question', (data) => {
+            changeScreen('screen-quiz');
+            document.getElementById('choices-area').style.display = 'block';
+            document.getElementById('wait-msg').style.display = 'none';
+            document.getElementById('question-text').innerText = `${data.index + 1}. ${data.q}`;
+            const btns = document.querySelectorAll('.btn-choice');
+            data.a.forEach((choice, i) => {
+                btns[i].innerText = choice;
+            });
+        });
+
+        socket.on('game_over', (ranks) => {
+            changeScreen('screen-result');
+            document.getElementById('rank-list').innerHTML = ranks.map((r, i) => 
+                `<div>${i+1}등: ${r.nickname} (${r.score}점)</div>`
+            ).join('');
+        });
+
+        socket.on('error_msg', (m) => alert(m));
     </script>
 </body>
 </html>
