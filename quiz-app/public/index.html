@@ -5,65 +5,77 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>로컬 퀴즈쇼</title>
     <style>
-        body { font-family: sans-serif; text-align: center; background: #f8f9fa; margin: 0; padding-bottom: 100px; }
+        body { font-family: sans-serif; text-align: center; background: #f0f2f5; margin: 0; padding-bottom: 80px; }
         .screen { display: none; padding: 20px; }
         .active { display: block; }
-        #user-list-container { background: white; border: 1px solid #ddd; max-height: 150px; overflow-y: auto; margin: 20px auto; width: 80%; padding: 10px; border-radius: 10px; }
-        .btn-choice { width: 100%; padding: 20px; margin: 10px 0; font-size: 1.1rem; border: none; border-radius: 15px; background: #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.1); cursor: pointer; }
-        #question-text { font-size: 1.4rem; font-weight: bold; margin-bottom: 20px; }
+        .btn-choice { width: 100%; padding: 18px; margin: 8px 0; font-size: 1.1rem; border: none; border-radius: 12px; background: white; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         
-        /* 방장 컨트롤러 하단 고정 스타일 */
+        /* 실시간 카운트 스타일 */
+        #remaining-badge { background: #ff4757; color: white; padding: 5px 12px; border-radius: 20px; font-size: 0.9rem; }
+        
+        /* 결과 박스 */
+        .result-box { background: white; padding: 20px; border-radius: 15px; margin-top: 20px; border: 2px solid #27ae60; }
+        
+        /* 방장 컨트롤러 (기본 숨김) */
         #host-controller { 
             position: fixed; bottom: 0; left: 0; right: 0; 
-            background: #333; color: white; padding: 15px; 
-            display: flex; justify-content: center; align-items: center; gap: 10px;
-            z-index: 1000;
+            background: #222; color: white; padding: 10px; 
+            display: none; /* JS에서 방장 로그인 시 활성화 */
+            justify-content: center; align-items: center; gap: 8px;
         }
-        .host-input { width: 60px; padding: 5px; }
-        .host-btn { background: #27ae60; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; }
     </style>
 </head>
 <body>
 
     <div id="screen-intro" class="screen active">
         <h1>🎮 퀴즈 서바이벌</h1>
-        <button onclick="changeScreen('screen-nickname')" style="padding:15px 30px; background:#4a90e2; color:white; border:none; border-radius:10px;">참여하기</button>
+        <button onclick="changeScreen('screen-nickname')">참여하기</button>
+        <p><small onclick="toggleHostPanel()" style="color:#ccc;">방장용 메뉴</small></p>
     </div>
 
     <div id="screen-nickname" class="screen">
         <h2>닉네임 입력</h2>
-        <input type="text" id="nickname-input" placeholder="닉네임" autocomplete="off">
-        <button onclick="joinWaitingRoom()" style="margin-top:20px; padding:10px 20px;">대기실 입장</button>
+        <input type="text" id="nickname-input" placeholder="닉네임">
+        <button onclick="joinWaitingRoom()">입장</button>
     </div>
 
     <div id="screen-waiting" class="screen">
         <h2>대기실</h2>
-        <p>접속자: <span id="count-num">0</span>명</p>
-        <div id="user-list-container"><div id="user-list"></div></div>
-        <p>방장이 게임을 시작할 때까지 대기하세요...</p>
+        <p>접속 인원: <span id="count-num">0</span>명</p>
+        <div id="user-list" style="background:white; margin:10px; padding:10px; border-radius:10px; max-height:100px; overflow-y:auto;"></div>
+        <p>방장이 시작하기를 기다리고 있습니다...</p>
     </div>
 
     <div id="screen-quiz" class="screen">
-        <div id="question-text">문제를 불러오는 중...</div>
+        <div id="remaining-badge">남은 인원: <span id="rem-count">0</span>명</div>
+        <h2 id="question-text"></h2>
         <div id="choices-area">
             <button class="btn-choice" onclick="sendAnswer(0)"></button>
             <button class="btn-choice" onclick="sendAnswer(1)"></button>
             <button class="btn-choice" onclick="sendAnswer(2)"></button>
             <button class="btn-choice" onclick="sendAnswer(3)"></button>
         </div>
-        <p id="wait-msg" style="display:none; color:blue; font-weight:bold;">정답 제출 완료! 다음 문제를 기다리세요.</p>
+    </div>
+
+    <div id="screen-reveal" class="screen">
+        <div class="result-box">
+            <h2 id="correct-ans-text" style="color:#27ae60;"></h2>
+            <p id="desc-text"></p>
+        </div>
+        <h3>현재 랭킹</h3>
+        <div id="mid-rank-list"></div>
     </div>
 
     <div id="screen-result" class="screen">
-        <h1>🏆 최종 순위</h1>
-        <div id="rank-list"></div>
-        <button onclick="location.reload()" style="margin-top:20px;">처음으로 돌아가기</button>
+        <h1>🏆 최종 우승자</h1>
+        <div id="final-rank-list"></div>
+        <button onclick="location.reload()">재시작</button>
     </div>
 
     <div id="host-controller">
-        <span style="font-size: 0.8rem;">방장 전용:</span>
-        <input type="password" id="host-pw" class="host-input" placeholder="비번">
-        <button onclick="triggerNext()" class="host-btn">다음 단계(시작)</button>
+        <input type="password" id="host-pw" style="width:50px" placeholder="PW">
+        <button onclick="socket.emit('request_start', document.getElementById('host-pw').value)">문제전송</button>
+        <button onclick="socket.emit('request_reveal', document.getElementById('host-pw').value)" style="background:orange">정답공개</button>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
@@ -75,49 +87,55 @@
             document.getElementById(id).classList.add('active');
         }
 
-        function joinWaitingRoom() {
-            const nick = document.getElementById('nickname-input').value;
-            if(!nick) return alert("닉네임을 입력하세요!");
-            socket.emit('join_waiting_room', nick);
-            changeScreen('screen-waiting');
+        // 아주 작게 만든 '방장 메뉴' 글씨를 눌러야 패널이 나타남
+        function toggleHostPanel() {
+            const panel = document.getElementById('host-controller');
+            panel.style.display = (panel.style.display === 'flex') ? 'none' : 'flex';
         }
 
-        // 방장 버튼 클릭 시 호출
-        function triggerNext() {
-            const pw = document.getElementById('host-pw').value;
-            socket.emit('request_start', pw);
+        function joinWaitingRoom() {
+            const nick = document.getElementById('nickname-input').value;
+            if(!nick) return;
+            socket.emit('join_waiting_room', nick);
+            changeScreen('screen-waiting');
         }
 
         function sendAnswer(idx) {
             socket.emit('submit_answer', idx);
             document.getElementById('choices-area').style.display = 'none';
-            document.getElementById('wait-msg').style.display = 'block';
         }
 
         socket.on('update_user_list', (users) => {
             document.getElementById('count-num').innerText = users.length;
-            document.getElementById('user-list').innerHTML = users.map(u => `<div>${u}</div>`).join('');
+            document.getElementById('user-list').innerHTML = users.join(', ');
         });
 
         socket.on('next_question', (data) => {
             changeScreen('screen-quiz');
             document.getElementById('choices-area').style.display = 'block';
-            document.getElementById('wait-msg').style.display = 'none';
-            document.getElementById('question-text').innerText = `${data.index + 1}. ${data.q}`;
+            document.getElementById('question-text').innerText = (data.index + 1) + ". " + data.q;
+            document.getElementById('rem-count').innerText = data.total;
             const btns = document.querySelectorAll('.btn-choice');
-            data.a.forEach((choice, i) => {
-                btns[i].innerText = choice;
-            });
+            data.a.forEach((choice, i) => btns[i].innerText = choice);
+        });
+
+        socket.on('update_remaining', (rem) => {
+            document.getElementById('rem-count').innerText = rem;
+        });
+
+        socket.on('reveal_answer', (data) => {
+            changeScreen('screen-reveal');
+            document.getElementById('correct-ans-text').innerText = "정답: " + (data.correct + 1) + "번";
+            document.getElementById('desc-text').innerText = data.desc;
+            document.getElementById('mid-rank-list').innerHTML = data.ranking.slice(0, 5).map((r, i) => 
+                `<div>${i+1}위: ${r.nickname} (${r.score}점)</div>`
+            ).join('');
         });
 
         socket.on('game_over', (ranks) => {
             changeScreen('screen-result');
-            document.getElementById('rank-list').innerHTML = ranks.map((r, i) => 
-                `<div>${i+1}등: ${r.nickname} (${r.score}점)</div>`
-            ).join('');
+            document.getElementById('final-rank-list').innerHTML = ranks.map((r, i) => `<div>${i+1}등: ${r.nickname}</div>`).join('');
         });
-
-        socket.on('error_msg', (m) => alert(m));
     </script>
 </body>
 </html>
