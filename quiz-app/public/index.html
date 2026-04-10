@@ -1,62 +1,72 @@
 <!DOCTYPE html>
-<html>
-<head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<html lang="ko"> <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>로컬 퀴즈쇼</title>
     <style>
-        body { font-family: 'Arial', sans-serif; text-align: center; background: #f0f2f5; }
-        .screen { display: none; padding: 50px 20px; }
-        .active { display: block; } /* 현재 보여줄 화면 */
-        button { padding: 15px 30px; font-size: 1.2rem; cursor: pointer; border-radius: 10px; border:none; background: #4a90e2; color: white; margin-top: 20px; }
-        input { padding: 10px; font-size: 1.1rem; border-radius: 5px; border: 1px solid #ccc; }
-        #user-count { font-weight: bold; color: #e67e22; }
+        body { font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; text-align: center; background: #f0f2f5; margin: 0; padding: 0; }
+        .screen { display: none; padding: 30px 20px; }
+        .active { display: block; }
+        
+        /* 유저 리스트 스타일 */
+        #user-list-container { 
+            background: white; border-radius: 10px; border: 1px solid #ddd;
+            max-height: 200px; overflow-y: auto; /* 세로 스크롤 */
+            margin: 20px auto; width: 80%; padding: 10px;
+        }
+        .user-item { padding: 8px; border-bottom: 1px solid #eee; font-weight: bold; color: #333; }
+        .user-item:last-child { border-bottom: none; }
+
+        button { padding: 15px 30px; font-size: 1.2rem; cursor: pointer; border-radius: 10px; border:none; background: #4a90e2; color: white; margin-top: 10px; width: 100%; max-width: 300px; }
+        input { padding: 12px; font-size: 1.1rem; border-radius: 5px; border: 1px solid #ccc; width: 80%; max-width: 280px; }
     </style>
 </head>
 <body>
 
     <div id="screen-intro" class="screen active">
         <h1>🎮 퀴즈 서바이벌</h1>
-        <p>환영합니다! 시작하려면 아래 버튼을 누르세요.</p>
-        <button onclick="showNicknameInput()">참여하기</button>
+        <button onclick="changeScreen('screen-nickname')">참여하기</button>
     </div>
 
     <div id="screen-nickname" class="screen">
-        <h2>사용할 닉네임을 입력하세요</h2>
-        <input type="text" id="nickname-input" placeholder="닉네임">
+        <h2>닉네임을 입력하세요</h2>
+        <input type="text" id="nickname-input" placeholder="한글/영문 닉네임" autocomplete="off" spellcheck="false">
         <br>
         <button onclick="joinWaitingRoom()">대기실 입장</button>
     </div>
 
     <div id="screen-waiting" class="screen">
         <h2>대기실</h2>
-        <p>현재 접속 인원: <span id="user-count">0</span>명</p>
-        <p>방장이 게임을 시작할 때까지 잠시만 기다려주세요...</p>
+        <p>현재 접속자: <span id="count-num" style="color:red; font-weight:bold;">0</span>명</p>
+        
+        <div id="user-list-container">
+            <div id="user-list">
+                </div>
+        </div>
+
+        <p>방장의 시작을 기다리는 중...</p>
         <hr>
-        <p style="font-size: 0.8rem; color: #888;">방장용: <input type="password" id="host-pw" placeholder="비번" style="width:60px"> 
-        <button onclick="startQuiz()" style="background:#27ae60; padding: 5px 10px; font-size:0.8rem;">게임 시작</button></p>
+        <div style="background: #eee; padding: 15px; border-radius: 10px;">
+            <p style="margin:0 0 10px 0;">방장 메뉴</p>
+            <input type="password" id="host-pw" placeholder="비밀번호" style="width:100px; font-size:0.8rem;">
+            <button onclick="startQuiz()" style="background:#27ae60; padding: 8px 15px; font-size:0.9rem; width:auto;">게임 시작</button>
+        </div>
     </div>
 
     <div id="screen-quiz" class="screen">
-        <h1>🚀 퀴즈가 시작되었습니다!</h1>
-        <p>첫 번째 문제 대기 중...</p>
+        <h1>🚀 퀴즈 시작!</h1>
+        <p>화면을 주목해주세요.</p>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
 
-        // 화면 전환 함수
         function changeScreen(screenId) {
             document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
             document.getElementById(screenId).classList.add('active');
         }
 
-        // 1 -> 2
-        function showNicknameInput() {
-            changeScreen('screen-nickname');
-        }
-
-        // 2 -> 3
         function joinWaitingRoom() {
             const nick = document.getElementById('nickname-input').value;
             if(!nick) return alert("닉네임을 입력해주세요!");
@@ -64,22 +74,32 @@
             changeScreen('screen-waiting');
         }
 
-        // 방장이 시작 버튼 눌렀을 때 (3 -> 4로 가기 위한 요청)
         function startQuiz() {
             const pw = document.getElementById('host-pw').value;
             socket.emit('request_start', pw);
         }
 
-        // 실시간 인원수 업데이트 수신
-        socket.on('update_count', (count) => {
-            document.getElementById('user-count').innerText = count;
+        // 서버로부터 유저 목록 업데이트 수신
+        socket.on('update_user_list', (userArray) => {
+            const listDiv = document.getElementById('user-list');
+            const countSpan = document.getElementById('count-num');
+            
+            countSpan.innerText = userArray.length;
+            listDiv.innerHTML = ''; // 기존 목록 초기화
+
+            userArray.forEach(name => {
+                const div = document.createElement('div');
+                div.className = 'user-item';
+                div.innerText = name;
+                listDiv.appendChild(div);
+            });
+
+            // 새 유저가 오면 자동으로 리스트 맨 아래로 스크롤
+            const container = document.getElementById('user-list-container');
+            container.scrollTop = container.scrollHeight;
         });
 
-        // 서버에서 게임 시작 신호가 오면 모든 유저 화면 전환
-        socket.on('game_started', () => {
-            changeScreen('screen-quiz');
-        });
-
+        socket.on('game_started', () => changeScreen('screen-quiz'));
         socket.on('error_msg', (msg) => alert(msg));
     </script>
 </body>

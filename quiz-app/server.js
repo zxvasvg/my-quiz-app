@@ -5,24 +5,24 @@ const io = require('socket.io')(http);
 
 app.use(express.static('public'));
 
-let connectedUsers = 0;
+// 접속 중인 유저 정보를 저장할 객체 { socketId: nickname }
+let players = {};
 
 io.on('connection', (socket) => {
-    // 1. 새로운 사람이 들어오면 전체 인원수 업데이트
-    connectedUsers++;
-    io.emit('update_count', connectedUsers);
-    console.log(`현재 접속자: ${connectedUsers}명`);
+    console.log('유저 접속 시도...');
 
-    // 2. 닉네임 입력하고 대기실 입장
+    // 닉네임 입력 후 대기실 입장
     socket.on('join_waiting_room', (nickname) => {
         socket.nickname = nickname;
-        console.log(`${nickname}님이 대기실에 입장했습니다.`);
+        players[socket.id] = nickname; // 소켓 ID를 키로 닉네임 저장
+        
+        // 전체 유저에게 업데이트된 리스트 전송
+        io.emit('update_user_list', Object.values(players));
+        console.log(`${nickname} 입장. 현재 인원: ${Object.keys(players).length}명`);
     });
 
-    // 3. 방장이 '시작' 버튼을 눌렀을 때 모든 플레이어에게 알림
     socket.on('request_start', (password) => {
-        // 간단한 방장 인증 (예: 비번 '1224')
-        if (password === '1224') {
+        if (password === '1234') {
             io.emit('game_started');
         } else {
             socket.emit('error_msg', '방장 비밀번호가 틀렸습니다!');
@@ -30,8 +30,10 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', () => {
-        connectedUsers--;
-        io.emit('update_count', connectedUsers);
+        if (socket.nickname) {
+            delete players[socket.id]; // 나간 유저 제거
+            io.emit('update_user_list', Object.values(players));
+        }
     });
 });
 
