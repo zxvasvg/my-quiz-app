@@ -57,14 +57,14 @@ io.on('connection', (socket) => {
     socket.on('request_start', (password) => {
         if (password === '1234') {
             currentQuestionIndex++;
-            submittedCount = 0; // 카운트 초기화
+            submittedCount = 0; 
             
             if (currentQuestionIndex < quizBank.length) {
-                // 유저들의 '답변 상태' 초기화
                 Object.values(players).forEach(p => p.answered = false);
                 
                 const questionData = {
                     index: currentQuestionIndex,
+                    type: quizBank[currentQuestionIndex].type, // [수정] 이 부분이 꼭 들어가야 합니다!
                     q: quizBank[currentQuestionIndex].q,
                     a: quizBank[currentQuestionIndex].a,
                     total: Object.keys(players).length
