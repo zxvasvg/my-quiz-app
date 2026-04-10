@@ -5,20 +5,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>로컬 퀴즈쇼</title>
     <style>
-        body { font-family: sans-serif; text-align: center; background: #f8f9fa; margin: 0; }
+        body { font-family: sans-serif; text-align: center; background: #f8f9fa; margin: 0; padding-bottom: 100px; }
         .screen { display: none; padding: 20px; }
         .active { display: block; }
         #user-list-container { background: white; border: 1px solid #ddd; max-height: 150px; overflow-y: auto; margin: 20px auto; width: 80%; padding: 10px; border-radius: 10px; }
-        .btn-choice { width: 100%; padding: 20px; margin: 10px 0; font-size: 1.1rem; border: none; border-radius: 15px; background: #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.1); cursor: pointer; transition: 0.2s; }
-        .btn-choice:active { transform: scale(0.98); background: #e2e2e2; }
-        #question-text { font-size: 1.4rem; font-weight: bold; margin-bottom: 20px; word-break: keep-all; }
+        .btn-choice { width: 100%; padding: 20px; margin: 10px 0; font-size: 1.1rem; border: none; border-radius: 15px; background: #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.1); cursor: pointer; }
+        #question-text { font-size: 1.4rem; font-weight: bold; margin-bottom: 20px; }
+        
+        /* 방장 컨트롤러 하단 고정 스타일 */
+        #host-controller { 
+            position: fixed; bottom: 0; left: 0; right: 0; 
+            background: #333; color: white; padding: 15px; 
+            display: flex; justify-content: center; align-items: center; gap: 10px;
+            z-index: 1000;
+        }
+        .host-input { width: 60px; padding: 5px; }
+        .host-btn { background: #27ae60; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; }
     </style>
 </head>
 <body>
 
     <div id="screen-intro" class="screen active">
         <h1>🎮 퀴즈 서바이벌</h1>
-        <button onclick="changeScreen('screen-nickname')" style="padding:15px 30px; background:#4a90e2; color:white; border:none; border-radius:10px;">시작하기</button>
+        <button onclick="changeScreen('screen-nickname')" style="padding:15px 30px; background:#4a90e2; color:white; border:none; border-radius:10px;">참여하기</button>
     </div>
 
     <div id="screen-nickname" class="screen">
@@ -31,10 +40,7 @@
         <h2>대기실</h2>
         <p>접속자: <span id="count-num">0</span>명</p>
         <div id="user-list-container"><div id="user-list"></div></div>
-        <p>방장이 게임을 시작할 때까지 대기...</p>
-        <hr>
-        <input type="password" id="host-pw" placeholder="비번" style="width:60px">
-        <button onclick="nextStep()" style="background:green; color:white; border:none; padding:5px 10px;">게임 시작 / 다음 문제</button>
+        <p>방장이 게임을 시작할 때까지 대기하세요...</p>
     </div>
 
     <div id="screen-quiz" class="screen">
@@ -45,13 +51,19 @@
             <button class="btn-choice" onclick="sendAnswer(2)"></button>
             <button class="btn-choice" onclick="sendAnswer(3)"></button>
         </div>
-        <p id="wait-msg" style="display:none; color:blue;">정답 제출 완료! 다음 문제를 기다리세요.</p>
+        <p id="wait-msg" style="display:none; color:blue; font-weight:bold;">정답 제출 완료! 다음 문제를 기다리세요.</p>
     </div>
 
     <div id="screen-result" class="screen">
         <h1>🏆 최종 순위</h1>
         <div id="rank-list"></div>
         <button onclick="location.reload()" style="margin-top:20px;">처음으로 돌아가기</button>
+    </div>
+
+    <div id="host-controller">
+        <span style="font-size: 0.8rem;">방장 전용:</span>
+        <input type="password" id="host-pw" class="host-input" placeholder="비번">
+        <button onclick="triggerNext()" class="host-btn">다음 단계(시작)</button>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
@@ -65,12 +77,13 @@
 
         function joinWaitingRoom() {
             const nick = document.getElementById('nickname-input').value;
-            if(!nick) return alert("닉네임!");
+            if(!nick) return alert("닉네임을 입력하세요!");
             socket.emit('join_waiting_room', nick);
             changeScreen('screen-waiting');
         }
 
-        function nextStep() {
+        // 방장 버튼 클릭 시 호출
+        function triggerNext() {
             const pw = document.getElementById('host-pw').value;
             socket.emit('request_start', pw);
         }
