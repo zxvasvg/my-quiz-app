@@ -10,13 +10,41 @@ let currentQuestionIndex = -1;
 let submittedCount = 0; // 현재 문제에 답한 인원
 
 const quizBank = [
-    { q: "1번 제주도 한라산의 높이는 정확히 몇 m일까요?", a: ["1,947m", "1,950m", "2,024m", "1,850m"], cor: 0, desc: "한라산은 해발 1,947m로 대한민국에서 가장 높은 산입니다!" },
-    { q: "마리오가 1981년 처음 등장했을 때의 직업은?", a: ["배관공", "목수", "요리사", "의사"], cor: 1, desc: "처음 '동키콩'에 등장했을 때는 건설 현장의 목수였습니다." },
-    { q: "웹페이지 실시간 통신 기술 이름은?", a: ["Socket.io", "HTTP 1.1", "C++ Direct", "FTP"], cor: 0, desc: "Socket.io는 양방향 실시간 통신을 가능하게 해주는 라이브러리입니다." },
-    { q: "피카츄의 전국도감 번호는?", a: ["001", "007", "025", "151"], cor: 2, desc: "피카츄는 25번입니다. 1번은 이상해씨, 151번은 뮤죠!" },
-    { q: "딸기의 식물학적 분류로 맞는 것은?", a: ["장미과", "국화과", "백합과", "버드나무과"], cor: 0, desc: "딸기는 놀랍게도 장미과에 속하는 다년생 초본입니다." },
-    { q: "6번 답은 2번이다.", a: ["맞다", "아니다"], cor: 1, desc: "답은 2번이 맞습니다." }
-
+    { 
+        type: "single", // 4지 선다
+        q: "한라산의 높이는?", 
+        a: ["1,947m", "1,950m", "2,024m", "1,850m"], 
+        cor: [0], 
+        desc: "1,947m입니다!" 
+    },
+    { 
+        type: "ox", // 2지 선다 (O/X)
+        q: "딸기는 식물학적으로 '채소'에 해당한다?", 
+        a: ["O (맞음)", "X (틀림)"], 
+        cor: [0], 
+        desc: "딸기, 수박, 참외는 나무가 아닌 밭에서 자라므로 '채소(과채류)'로 분류됩니다." 
+    },
+    { 
+        type: "multi", // 중복 정답
+        q: "다음 중 닌텐도의 게임기가 '아닌' 것을 모두 고르세요.", 
+        a: ["스위치", "플레이스테이션", "게임보이", "엑스박스"], 
+        cor: [1, 3], // 2번, 4번 중복 정답
+        desc: "플레이스테이션은 소니, 엑스박스는 마이크로소프트의 제품입니다." 
+    },
+    { 
+        type: "multi", // 중복 정답
+        q: "제주도 하면 떠오르는 것을 모두 고르세요.", 
+        a: ["돌하르방", "한라봉", "남산타워", "흑돼지"], 
+        cor: [0, 1, 3], 
+        desc: "남산타워는 서울에 있습니다!" 
+    },
+    { 
+        type: "single",
+        q: "포켓몬 '피카츄'의 타입은?", 
+        a: ["전기", "물", "불", "풀"], 
+        cor: [0], 
+        desc: "피카츄는 전기 타입 포켓몬입니다." 
+    }
 ];
 
 io.on('connection', (socket) => {
@@ -62,21 +90,25 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('submit_answer', (answerIdx) => {
-        if (players[socket.id] && !players[socket.id].answered) {
-            players[socket.id].answered = true;
-            submittedCount++;
-            
-            // 정답 체크
-            if (answerIdx === quizBank[currentQuestionIndex].cor) {
-                players[socket.id].score += 10;
-            }
-            
-            // 모든 유저에게 "현재 X명 남음" 알림
-            const remaining = Object.keys(players).length - submittedCount;
-            io.emit('update_remaining', remaining);
+    socket.on('submit_answer', (selectedIndices) => {
+    // selectedIndices는 클라이언트에서 보낸 배열 형태 [0, 2]
+    if (players[socket.id] && !players[socket.id].answered) {
+        players[socket.id].answered = true;
+        submittedCount++;
+
+        // 정답 체크 (C++ 배열 비교하듯 처리)
+        const correctAnswers = quizBank[currentQuestionIndex].cor;
+        const isCorrect = 
+            selectedIndices.length === correctAnswers.length &&
+            selectedIndices.every(val => correctAnswers.includes(val));
+
+        if (isCorrect) {
+            players[socket.id].score += 10;
         }
-    });
+
+        const remaining = Object.keys(players).length - submittedCount;
+        io.emit('update_remaining', remaining);
+    }});
 
     socket.on('disconnect', () => {
         delete players[socket.id];
