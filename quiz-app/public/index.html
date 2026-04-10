@@ -4,37 +4,83 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>로컬 퀴즈쇼</title>
     <style>
-        body { font-family: sans-serif; text-align: center; padding: 20px; }
-        button { width: 100%; padding: 20px; margin: 10px 0; font-size: 1.2rem; cursor: pointer; }
-        #log { border: 1px solid #ccc; padding: 10px; height: 200px; overflow-y: scroll; }
+        body { font-family: 'Arial', sans-serif; text-align: center; background: #f0f2f5; }
+        .screen { display: none; padding: 50px 20px; }
+        .active { display: block; } /* 현재 보여줄 화면 */
+        button { padding: 15px 30px; font-size: 1.2rem; cursor: pointer; border-radius: 10px; border:none; background: #4a90e2; color: white; margin-top: 20px; }
+        input { padding: 10px; font-size: 1.1rem; border-radius: 5px; border: 1px solid #ccc; }
+        #user-count { font-weight: bold; color: #e67e22; }
     </style>
 </head>
 <body>
-    <h1>🎮 퀴즈 서바이벌</h1>
-    <input type="text" id="nickname" placeholder="닉네임 입력">
-    <hr>
-    <button onclick="sendAnswer('A')" style="background: #ff4757; color:white;">A</button>
-    <button onclick="sendAnswer('B')" style="background: #1e90ff; color:white;">B</button>
-    
-    <h3>실시간 상황</h3>
-    <div id="log"></div>
+
+    <div id="screen-intro" class="screen active">
+        <h1>🎮 퀴즈 서바이벌</h1>
+        <p>환영합니다! 시작하려면 아래 버튼을 누르세요.</p>
+        <button onclick="showNicknameInput()">참여하기</button>
+    </div>
+
+    <div id="screen-nickname" class="screen">
+        <h2>사용할 닉네임을 입력하세요</h2>
+        <input type="text" id="nickname-input" placeholder="닉네임">
+        <br>
+        <button onclick="joinWaitingRoom()">대기실 입장</button>
+    </div>
+
+    <div id="screen-waiting" class="screen">
+        <h2>대기실</h2>
+        <p>현재 접속 인원: <span id="user-count">0</span>명</p>
+        <p>방장이 게임을 시작할 때까지 잠시만 기다려주세요...</p>
+        <hr>
+        <p style="font-size: 0.8rem; color: #888;">방장용: <input type="password" id="host-pw" placeholder="비번" style="width:60px"> 
+        <button onclick="startQuiz()" style="background:#27ae60; padding: 5px 10px; font-size:0.8rem;">게임 시작</button></p>
+    </div>
+
+    <div id="screen-quiz" class="screen">
+        <h1>🚀 퀴즈가 시작되었습니다!</h1>
+        <p>첫 번째 문제 대기 중...</p>
+    </div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
-        const nicknameInput = document.getElementById('nickname');
-        const logDiv = document.getElementById('log');
 
-        function sendAnswer(choice) {
-            const nickname = nicknameInput.value || '무명';
-            socket.emit('submit_answer', { nickname, choice });
+        // 화면 전환 함수
+        function changeScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
         }
 
-        socket.on('show_result', (data) => {
-            const p = document.createElement('p');
-            p.innerText = `${data.nickname}님이 ${data.choice}를 선택했습니다!`;
-            logDiv.prepend(p);
+        // 1 -> 2
+        function showNicknameInput() {
+            changeScreen('screen-nickname');
+        }
+
+        // 2 -> 3
+        function joinWaitingRoom() {
+            const nick = document.getElementById('nickname-input').value;
+            if(!nick) return alert("닉네임을 입력해주세요!");
+            socket.emit('join_waiting_room', nick);
+            changeScreen('screen-waiting');
+        }
+
+        // 방장이 시작 버튼 눌렀을 때 (3 -> 4로 가기 위한 요청)
+        function startQuiz() {
+            const pw = document.getElementById('host-pw').value;
+            socket.emit('request_start', pw);
+        }
+
+        // 실시간 인원수 업데이트 수신
+        socket.on('update_count', (count) => {
+            document.getElementById('user-count').innerText = count;
         });
+
+        // 서버에서 게임 시작 신호가 오면 모든 유저 화면 전환
+        socket.on('game_started', () => {
+            changeScreen('screen-quiz');
+        });
+
+        socket.on('error_msg', (msg) => alert(msg));
     </script>
 </body>
 </html>
