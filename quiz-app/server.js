@@ -8,6 +8,7 @@ app.use(express.static('public'));
 let players = {};
 let currentQuestionIndex = -1;
 let submittedCount = 0; // 현재 문제에 답한 인원
+let gameState = "waiting"; // 현재 게임 상태 (waiting, quiz, reveal)
 
 const quizBank = [
     { 
@@ -47,72 +48,64 @@ const quizBank = [
     }
 ];
 
+
 io.on('connection', (socket) => {
-    socket.on('join_waiting_room', (nickname) => {
-        socket.nickname = nickname;
-        players[socket.id] = { nickname: nickname, score: 0, answered: false };
-        io.emit('update_user_list', Object.values(players).map(p => p.nickname));
+    // 로그인/참여 로직
+    socket.on('join_waiting_room', (data) => {
+        const { userID, userPW, nickname } = data;
+
+        // 1. 이미 존재하는 아이디인 경우 (재접속)
+        if (players[userID]) {
+            if (players[userID].userPW === userPW) {
+                // 비밀번호 일치 시 소켓 업데이트 (Re-binding)
+                players[userID].socketID = socket.id;
+                socket.userID = userID; // 소켓에 유저 아이디 저장
+                console.log(`${nickname}님 재접속 성공!`);
+                
+                // 현재 게임 상태와 문제 정보를 바로 쏴줍니다 (상태 동기화)
+                syncClientState(socket);
+            } else {
+                socket.emit('error_msg', '비밀번호가 틀렸습니다.');
+            }
+        } 
+        // 2. 처음 접속하는 경우
+        else {
+            players[userID] = {
+                userID, userPW, nickname,
+                score: 0, answered: false, socketID: socket.id
+            };
+            socket.userID = userID;
+            io.emit('update_user_list', Object.values(players).map(p => p.nickname));
+        }
     });
 
-    socket.on('request_start', (password) => {
-        if (password === '1234') {
-            currentQuestionIndex++;
-            submittedCount = 0; 
-            
-            if (currentQuestionIndex < quizBank.length) {
-                Object.values(players).forEach(p => p.answered = false);
-                
-                const questionData = {
+    // 재접속한 유저에게 현재 화면을 맞춰주는 함수
+    function syncClientState(targetSocket) {
+        if (currentQuestionIndex >= 0) {
+            // 현재 게임 진행 상황에 따라 다른 이벤트를 보냄
+            if (gameState === "quiz") {
+                targetSocket.emit('next_question', {
                     index: currentQuestionIndex,
-                    type: quizBank[currentQuestionIndex].type, // [수정] 이 부분이 꼭 들어가야 합니다!
+                    type: quizBank[currentQuestionIndex].type,
                     q: quizBank[currentQuestionIndex].q,
                     a: quizBank[currentQuestionIndex].a,
                     total: Object.keys(players).length
-                };
-                io.emit('next_question', questionData);
-            } else {
-                const sortedRank = Object.values(players).sort((a, b) => b.score - a.score);
-                io.emit('game_over', sortedRank);
-                currentQuestionIndex = -1;
+                });
+            } else if (gameState === "reveal") {
+                // 정답 공개 중이었다면 결과 화면으로 보냄
+                targetSocket.emit('reveal_answer', {
+                    correct: quizBank[currentQuestionIndex].cor,
+                    desc: quizBank[currentQuestionIndex].desc,
+                    ranking: Object.values(players).sort((a, b) => b.score - a.score)
+                });
             }
         }
-    });
+    }
 
-    // 정답 공개 요청 (방장이 버튼 누를 때)
-    socket.on('request_reveal', (password) => {
-        if (password === '1234' && currentQuestionIndex >= 0) {
-            const resultData = {
-                correct: quizBank[currentQuestionIndex].cor,
-                desc: quizBank[currentQuestionIndex].desc,
-                ranking: Object.values(players).sort((a, b) => b.score - a.score)
-            };
-            io.emit('reveal_answer', resultData);
-        }
-    });
-
-    socket.on('submit_answer', (selectedIndices) => {
-    // selectedIndices는 클라이언트에서 보낸 배열 형태 [0, 2]
-    if (players[socket.id] && !players[socket.id].answered) {
-        players[socket.id].answered = true;
-        submittedCount++;
-
-        // 정답 체크 (C++ 배열 비교하듯 처리)
-        const correctAnswers = quizBank[currentQuestionIndex].cor;
-        const isCorrect = 
-            selectedIndices.length === correctAnswers.length &&
-            selectedIndices.every(val => correctAnswers.includes(val));
-
-        if (isCorrect) {
-            players[socket.id].score += 10;
-        }
-
-        const remaining = Object.keys(players).length - submittedCount;
-        io.emit('update_remaining', remaining);
-    }});
-
+    // disconnect 시 players에서 삭제하지 않고 '접속 끊김' 표시만 하거나 그대로 둠
     socket.on('disconnect', () => {
-        delete players[socket.id];
-        io.emit('update_user_list', Object.values(players).map(p => p.nickname));
+        console.log(`유저 연결 끊김 (ID: ${socket.userID})`);
+        // players 데이터는 지우지 않습니다! (이게 핵심)
     });
 });
 

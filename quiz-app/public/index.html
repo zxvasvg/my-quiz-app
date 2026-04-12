@@ -66,6 +66,14 @@
         <button onclick="socket.emit('request_reveal', document.getElementById('host-pw').value)" style="background:orange">정답공개</button>
     </div>
 
+    <div id="screen-nickname" class="screen">
+    <h2>로그인 / 참여</h2>
+    <input type="text" id="user-id" placeholder="아이디(영문/숫자)">
+    <input type="password" id="user-pw" placeholder="비밀번호">
+    <input type="text" id="nickname-input" placeholder="표시될 닉네임">
+    <button onclick="joinWaitingRoom()">참여하기</button>
+    </div>
+
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
@@ -136,6 +144,18 @@
             document.getElementById('submit-btn').style.display = 'none';
         }
 
+        function joinWaitingRoom() {
+        const userID = document.getElementById('user-id').value;
+        const userPW = document.getElementById('user-pw').value;
+        const nickname = document.getElementById('nickname-input').value;
+        
+        if(!userID || !userPW || !nickname) return alert("모든 정보를 입력하세요!");
+        
+        // 서버로 객체 전송
+        socket.emit('join_waiting_room', { userID, userPW, nickname });
+        changeScreen('screen-waiting');
+        }
+
         // 기타 이벤트 핸들러들
         socket.on('update_user_list', (users) => {
             document.getElementById('count-num').innerText = users.length;
@@ -163,6 +183,8 @@
         });
 
         socket.on('error_msg', (m) => alert(m));
+
+        
     </script>
 </body>
 </html>
