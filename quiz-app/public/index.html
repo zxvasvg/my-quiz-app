@@ -27,7 +27,6 @@
 
     <div id="screen-nickname" class="screen">
         <h2>로그인 / 참여</h2>
-        <p style="font-size: 0.8rem; color: #666;">나중에 재접속 시 아이디와 비번이 필요합니다.</p>
         <input type="text" id="user-id" placeholder="아이디(영문/숫자)">
         <input type="password" id="user-pw" placeholder="비밀번호">
         <input type="text" id="nickname-input" placeholder="표시될 닉네임">
@@ -87,22 +86,19 @@
             panel.style.display = (panel.style.display === 'flex') ? 'none' : 'flex';
         }
 
-        // 로그인/입장 함수
         function joinWaitingRoom() {
             const userID = document.getElementById('user-id').value;
             const userPW = document.getElementById('user-pw').value;
             const nickname = document.getElementById('nickname-input').value;
             
             if(!userID || !userPW || !nickname) {
-                return alert("모든 정보를 입력하세요!"); [cite: 395]
+                return alert("모든 정보를 입력하세요!");
             }
             
-            // 서버로 로그인 정보 객체 전송 [cite: 395]
             socket.emit('join_waiting_room', { userID, userPW, nickname });
             changeScreen('screen-waiting');
         }
 
-        // 문제 수신
         socket.on('next_question', (data) => {
             changeScreen('screen-quiz');
             currentSelected = [];
@@ -148,7 +144,6 @@
             document.getElementById('submit-btn').style.display = 'none';
         }
 
-        // 서버 이벤트 수신
         socket.on('update_user_list', (users) => {
             document.getElementById('count-num').innerText = users.length;
             document.getElementById('user-list').innerHTML = users.join(', ');

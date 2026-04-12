@@ -1,155 +1,176 @@
-const express = require('express');
-const app = express();
-const http = require('http').createServer(app);
-const io = require('socket.io')(http);
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>로컬 퀴즈쇼</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; background: #f0f2f5; margin: 0; padding-bottom: 80px; }
+        .screen { display: none; padding: 20px; }
+        .active { display: block; }
+        input { width: 80%; padding: 12px; margin: 5px 0; border-radius: 8px; border: 1px solid #ddd; }
+        .btn-choice { width: 100%; padding: 18px; margin: 8px 0; font-size: 1.1rem; border: none; border-radius: 12px; background: white; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .btn-choice.selected { background: #4a90e2 !important; color: white; border: 2px solid #2c3e50; }
+        #submit-btn { display: none; background: #27ae60; color: white; padding: 15px; width: 100%; border-radius: 12px; font-weight: bold; margin-top: 10px; border:none; }
+        #remaining-badge { background: #ff4757; color: white; padding: 5px 12px; border-radius: 20px; font-size: 0.9rem; }
+        .result-box { background: white; padding: 20px; border-radius: 15px; margin-top: 20px; border: 2px solid #27ae60; }
+        #host-controller { position: fixed; bottom: 0; left: 0; right: 0; background: #222; color: white; padding: 10px; display: none; justify-content: center; align-items: center; gap: 8px; }
+    </style>
+</head>
+<body>
 
-app.use(express.static('public'));
+    <div id="screen-intro" class="screen active">
+        <h1>🎮 퀴즈 서바이벌</h1>
+        <button onclick="changeScreen('screen-nickname')" style="padding:15px 30px; background:#4a90e2; color:white; border:none; border-radius:10px;">참여하기</button>
+        <p><small onclick="toggleHostPanel()" style="color:#ccc; cursor:pointer;">방장용 메뉴</small></p>
+    </div>
 
-let players = {}; // userID를 키로 점수와 상태 저장
-let currentQuestionIndex = -1;
-let submittedCount = 0; 
-let gameState = "waiting"; // waiting, quiz, reveal
+    <div id="screen-nickname" class="screen">
+        <h2>로그인 / 참여</h2>
+        <input type="text" id="user-id" placeholder="아이디(영문/숫자)">
+        <input type="password" id="user-pw" placeholder="비밀번호">
+        <input type="text" id="nickname-input" placeholder="표시될 닉네임">
+        <br>
+        <button onclick="joinWaitingRoom()" style="margin-top:20px; padding:15px 30px; background:#4a90e2; color:white; border:none; border-radius:10px;">참여하기</button>
+    </div>
 
-const quizBank = [
-    { 
-        type: "single", 
-        q: "한라산의 높이는?", 
-        a: ["1,947m", "1,950m", "2,024m", "1,850m"], 
-        cor: [0], 
-        desc: "1,947m입니다!" 
-    },
-    { 
-        type: "ox", 
-        q: "딸기는 식물학적으로 '채소'에 해당한다?", 
-        a: ["O (맞음)", "X (틀림)"], 
-        cor: [0], 
-        desc: "딸기, 수박, 참외는 밭에서 자라므로 채소(과채류)로 분류됩니다." 
-    },
-    { 
-        type: "multi", 
-        q: "다음 중 닌텐도의 게임기가 '아닌' 것을 모두 고르세요.", 
-        a: ["스위치", "플레이스테이션", "게임보이", "엑스박스"], 
-        cor: [1, 3], 
-        desc: "플레이스테이션은 소니, 엑스박스는 마이크로소프트 제품입니다." 
-    },
-    { 
-        type: "multi", 
-        q: "제주도 하면 떠오르는 것을 모두 고르세요.", 
-        a: ["돌하르방", "한라봉", "남산타워", "흑돼지"], 
-        cor: [0, 1, 3], 
-        desc: "남산타워는 서울에 있습니다!" 
-    },
-    { 
-        type: "single",
-        q: "포켓몬 '피카츄'의 타입은?", 
-        a: ["전기", "물", "불", "풀"], 
-        cor: [0], 
-        desc: "피카츄는 전기 타입 포켓몬입니다." 
-    }
-];
+    <div id="screen-waiting" class="screen">
+        <h2>대기실</h2>
+        <p>접속 인원: <span id="count-num">0</span>명</p>
+        <div id="user-list" style="background:white; margin:10px; padding:10px; border-radius:10px;"></div>
+        <p>방장이 시작하기를 기다리고 있습니다...</p>
+    </div>
 
-io.on('connection', (socket) => {
-    // 유저 로그인 및 재접속 처리
-    socket.on('join_waiting_room', (data) => {
-        const { userID, userPW, nickname } = data;
+    <div id="screen-quiz" class="screen">
+        <div id="remaining-badge">남은 인원: <span id="rem-count">0</span>명</div>
+        <p id="quiz-type-tag" style="color:#888; margin-top:10px; font-size:0.8rem;"></p>
+        <h2 id="question-text"></h2>
+        <div id="choices-area"></div>
+        <button id="submit-btn" onclick="finalSubmit()">정답 제출하기</button>
+    </div>
 
-        if (players[userID]) {
-            if (players[userID].userPW === userPW) {
-                players[userID].socketID = socket.id;
-                socket.userID = userID;
-                console.log(`${nickname}님 재접속`);
-                syncClientState(socket);
-            } else {
-                socket.emit('error_msg', '비밀번호가 틀렸습니다.');
-            }
-        } else {
-            players[userID] = {
-                userID, userPW, nickname,
-                score: 0, answered: false, socketID: socket.id
-            };
-            socket.userID = userID;
+    <div id="screen-reveal" class="screen">
+        <div class="result-box">
+            <h2 id="correct-ans-text" style="color:#27ae60;"></h2>
+            <p id="desc-text"></p>
+        </div>
+        <h3>현재 TOP 5 랭킹</h3>
+        <div id="mid-rank-list"></div>
+    </div>
+
+    <div id="screen-result" class="screen">
+        <h1>🏆 최종 우승자</h1>
+        <div id="final-rank-list"></div>
+        <button onclick="location.reload()">재시작</button>
+    </div>
+
+    <div id="host-controller">
+        <input type="password" id="host-pw" style="width:50px" placeholder="PW">
+        <button onclick="socket.emit('request_start', document.getElementById('host-pw').value)">문제전송</button>
+        <button onclick="socket.emit('request_reveal', document.getElementById('host-pw').value)" style="background:orange">정답공개</button>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let currentSelected = []; 
+        let currentType = "";
+
+        function changeScreen(id) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
         }
-        io.emit('update_user_list', Object.values(players).map(p => p.nickname));
-    });
 
-    // 방장의 문제 전송 (시작)
-    socket.on('request_start', (password) => {
-        if (password === '1234') {
-            currentQuestionIndex++;
-            submittedCount = 0;
-            gameState = "quiz";
-
-            if (currentQuestionIndex < quizBank.length) {
-                Object.values(players).forEach(p => p.answered = false);
-                io.emit('next_question', {
-                    index: currentQuestionIndex,
-                    type: quizBank[currentQuestionIndex].type,
-                    q: quizBank[currentQuestionIndex].q,
-                    a: quizBank[currentQuestionIndex].a,
-                    total: Object.keys(players).length
-                });
-            } else {
-                const sortedRank = Object.values(players).sort((a, b) => b.score - a.score);
-                io.emit('game_over', sortedRank);
-                currentQuestionIndex = -1;
-                gameState = "waiting";
-            }
+        function toggleHostPanel() {
+            const panel = document.getElementById('host-controller');
+            panel.style.display = (panel.style.display === 'flex') ? 'none' : 'flex';
         }
-    });
 
-    // 방장의 정답 공개
-    socket.on('request_reveal', (password) => {
-        if (password === '1234' && currentQuestionIndex >= 0) {
-            gameState = "reveal";
-            io.emit('reveal_answer', {
-                correct: quizBank[currentQuestionIndex].cor,
-                desc: quizBank[currentQuestionIndex].desc,
-                ranking: Object.values(players).sort((a, b) => b.score - a.score)
+        function joinWaitingRoom() {
+            const userID = document.getElementById('user-id').value;
+            const userPW = document.getElementById('user-pw').value;
+            const nickname = document.getElementById('nickname-input').value;
+            
+            if(!userID || !userPW || !nickname) {
+                return alert("모든 정보를 입력하세요!");
+            }
+            
+            socket.emit('join_waiting_room', { userID, userPW, nickname });
+            changeScreen('screen-waiting');
+        }
+
+        socket.on('next_question', (data) => {
+            changeScreen('screen-quiz');
+            currentSelected = [];
+            currentType = data.type; 
+            
+            document.getElementById('question-text').innerText = (data.index + 1) + ". " + data.q;
+            document.getElementById('quiz-type-tag').innerText = (data.type === 'multi') ? "[중복 선택 가능]" : "[하나만 선택]";
+            document.getElementById('rem-count').innerText = data.total;
+            
+            const area = document.getElementById('choices-area');
+            area.innerHTML = ''; 
+            
+            data.a.forEach((choice, i) => {
+                const btn = document.createElement('button');
+                btn.className = 'btn-choice';
+                btn.innerText = choice;
+                btn.onclick = () => selectChoice(i, btn);
+                area.appendChild(btn);
             });
-        }
-    });
+        
+            document.getElementById('submit-btn').style.display = (data.type === 'multi') ? 'block' : 'none';
+        });
 
-    // 정답 제출 처리
-    socket.on('submit_answer', (selectedIndices) => {
-        const p = players[socket.userID];
-        if (p && !p.answered) {
-            p.answered = true;
-            submittedCount++;
-
-            const correctAnswers = quizBank[currentQuestionIndex].cor;
-            const isCorrect = selectedIndices.length === correctAnswers.length &&
-                              selectedIndices.every(val => correctAnswers.includes(val));
-
-            if (isCorrect) p.score += 10;
-            io.emit('update_remaining', Object.keys(players).length - submittedCount);
-        }
-    });
-
-    // 중간에 들어온 유저에게 현재 상태 맞춰주기
-    function syncClientState(targetSocket) {
-        if (currentQuestionIndex >= 0) {
-            if (gameState === "quiz") {
-                targetSocket.emit('next_question', {
-                    index: currentQuestionIndex,
-                    type: quizBank[currentQuestionIndex].type,
-                    q: quizBank[currentQuestionIndex].q,
-                    a: quizBank[currentQuestionIndex].a,
-                    total: Object.keys(players).length
-                });
-            } else if (gameState === "reveal") {
-                targetSocket.emit('reveal_answer', {
-                    correct: quizBank[currentQuestionIndex].cor,
-                    desc: quizBank[currentQuestionIndex].desc,
-                    ranking: Object.values(players).sort((a, b) => b.score - a.score)
-                });
+        function selectChoice(idx, btnElement) {
+            if (currentType === 'single' || currentType === 'ox') {
+                socket.emit('submit_answer', [idx]); 
+                document.getElementById('choices-area').style.display = 'none';
+            } else {
+                if (currentSelected.includes(idx)) {
+                    currentSelected = currentSelected.filter(i => i !== idx);
+                    btnElement.classList.remove('selected');
+                } else {
+                    currentSelected.push(idx);
+                    btnElement.classList.add('selected');
+                }
             }
         }
-    }
 
-    socket.on('disconnect', () => {
-        console.log("연결 끊김");
-    });
-});
+        function finalSubmit() {
+            if (currentSelected.length === 0) return alert("최소 하나는 골라주세요!");
+            socket.emit('submit_answer', currentSelected);
+            document.getElementById('choices-area').style.display = 'none';
+            document.getElementById('submit-btn').style.display = 'none';
+        }
 
-const PORT = process.env.PORT || 3000;
-http.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+        socket.on('update_user_list', (users) => {
+            document.getElementById('count-num').innerText = users.length;
+            document.getElementById('user-list').innerHTML = users.join(', ');
+        });
+
+        socket.on('update_remaining', (rem) => {
+            document.getElementById('rem-count').innerText = rem;
+        });
+
+        socket.on('reveal_answer', (data) => {
+            changeScreen('screen-reveal');
+            const correctText = data.correct.map(i => (i + 1) + "번").join(', ');
+            document.getElementById('correct-ans-text').innerText = "정답: " + correctText;
+            document.getElementById('desc-text').innerText = data.desc;
+            document.getElementById('mid-rank-list').innerHTML = data.ranking.slice(0, 5).map((r, i) => 
+                `<div>${i+1}위: ${r.nickname} (${r.score}점)</div>`
+            ).join('');
+        });
+
+        socket.on('game_over', (ranks) => {
+            changeScreen('screen-result');
+            document.getElementById('final-rank-list').innerHTML = ranks.map((r, i) => 
+                `<div>${i+1}등: ${r.nickname} (${r.score}점)</div>`
+            ).join('');
+        });
+
+        socket.on('error_msg', (m) => alert(m));
+    </script>
+</body>
+</html>
