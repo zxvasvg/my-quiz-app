@@ -8,70 +8,59 @@ app.use(express.static('public'));
 let players = {}; 
 let currentQuestionIndex = -1;
 let submittedCount = 0; 
-let gameState = "waiting"; 
+let gameState = "intro"; // intro, tutorial, waiting, quiz, reveal
+let scoreMultiplier = 1; // 점수 이벤트 배율
 
 const quizBank = [
+    { type: "single", q: "연습문제: 당신은 제주도에 있나요?", a: ["네", "아니오"], cor: [0], desc: "튜토리얼 완료! 이제 대기실로 이동합니다." }, // 0번은 튜토리얼용
     { type: "single", q: "한라산의 높이는?", a: ["1,947m", "1,950m", "2,024m", "1,850m"], cor: [0], desc: "1,947m입니다!" },
-    { type: "ox", q: "딸기는 식물학적으로 '채소'에 해당한다?", a: ["O (맞음)", "X (틀림)"], cor: [0], desc: "딸기, 수박, 참외는 밭에서 자라므로 채소(과채류)로 분류됩니다." },
-    { type: "multi", q: "다음 중 닌텐도의 게임기가 '아닌' 것을 모두 고르세요.", a: ["스위치", "플레이스테이션", "게임보이", "엑스박스"], cor: [1, 3], desc: "플레이스테이션은 소니, 엑스박스는 마이크로소프트 제품입니다." },
-    { type: "multi", q: "제주도 하면 떠오르는 것을 모두 고르세요.", a: ["돌하르방", "한라봉", "남산타워", "흑돼지"], cor: [0, 1, 3], desc: "남산타워는 서울에 있습니다!" },
-    { type: "single", q: "포켓몬 '피카츄'의 타입은?", a: ["전기", "물", "불", "풀"], cor: [0], desc: "피카츄는 전기 타입 포켓몬입니다." }
+    { type: "multi", q: "닌텐도 기기가 아닌 것은?", a: ["스위치", "플스", "게임보이", "엑박"], cor: [1, 3], desc: "플스는 소니, 엑박은 MS 제품입니다." }
 ];
 
 io.on('connection', (socket) => {
+    // 접속 시 자동 로직 실행 [cite: 531, 544]
     socket.on('join_waiting_room', (data) => {
         const { userID, nickname } = data;
-
-        if (players[userID]) {
-            // 기존 유저 재접속: 상태를 온라인으로 변경
-            players[userID].socketID = socket.id;
-            players[userID].online = true; 
-            socket.userID = userID;
-            syncClientState(socket);
+        if (!players[userID]) {
+            players[userID] = { userID, nickname, score: 0, answered: false, socketID: socket.id, online: true };
         } else {
-            // 새 유저 등록
-            players[userID] = {
-                userID, nickname,
-                score: 0, answered: false, socketID: socket.id,
-                online: true
-            };
-            socket.userID = userID;
+            players[userID].socketID = socket.id;
+            players[userID].online = true;
         }
+        socket.userID = userID;
         io.emit('update_user_list', Object.values(players));
     });
 
+    // 방장의 컨트롤 신호 처리 [cite: 552]
     socket.on('request_start', (password) => {
         if (password === '1234') {
             currentQuestionIndex++;
             submittedCount = 0;
-            gameState = "quiz";
-
-            if (currentQuestionIndex < quizBank.length) {
-                Object.values(players).forEach(p => p.answered = false);
-                io.emit('next_question', {
-                    index: currentQuestionIndex,
-                    type: quizBank[currentQuestionIndex].type,
-                    q: quizBank[currentQuestionIndex].q,
-                    a: quizBank[currentQuestionIndex].a,
-                    total: Object.values(players).filter(p => p.online).length
-                });
-            } else {
-                const sortedRank = Object.values(players).sort((a, b) => b.score - a.score);
-                io.emit('game_over', sortedRank);
-                currentQuestionIndex = -1;
-                gameState = "waiting";
+            scoreMultiplier = 1; // 새 문제 시작 시 배율 초기화
+            
+            if (currentQuestionIndex === 0) gameState = "tutorial";
+            else if (currentQuestionIndex < quizBank.length) gameState = "quiz";
+            else { 
+                io.emit('game_over', Object.values(players).sort((a,b) => b.score - a.score));
+                return;
             }
+
+            io.emit('next_question', {
+                index: currentQuestionIndex,
+                gameState: gameState,
+                type: quizBank[currentQuestionIndex].type,
+                q: quizBank[currentQuestionIndex].q,
+                a: quizBank[currentQuestionIndex].a,
+                total: Object.values(players).filter(p => p.online).length
+            });
         }
     });
 
-    socket.on('request_reveal', (password) => {
-        if (password === '1234' && currentQuestionIndex >= 0) {
-            gameState = "reveal";
-            io.emit('reveal_answer', {
-                correct: quizBank[currentQuestionIndex].cor,
-                desc: quizBank[currentQuestionIndex].desc,
-                ranking: Object.values(players).sort((a, b) => b.score - a.score)
-            });
+    // 2배 이벤트 토글 (방장 전용)
+    socket.on('toggle_multiplier', (password) => {
+        if (password === '1234') {
+            scoreMultiplier = (scoreMultiplier === 1) ? 2 : 1;
+            io.emit('multiplier_update', scoreMultiplier);
         }
     });
 
@@ -83,30 +72,13 @@ io.on('connection', (socket) => {
             const correctAnswers = quizBank[currentQuestionIndex].cor;
             const isCorrect = selectedIndices.length === correctAnswers.length &&
                               selectedIndices.every(val => correctAnswers.includes(val));
-            if (isCorrect) p.score += 10;
+            
+            if (isCorrect && gameState !== "tutorial") { 
+                p.score += (10 * scoreMultiplier); // 이벤트 배율 적용
+            }
             io.emit('update_remaining', Object.values(players).filter(p => p.online).length - submittedCount);
         }
     });
-
-    function syncClientState(targetSocket) {
-        if (currentQuestionIndex >= 0) {
-            if (gameState === "quiz") {
-                targetSocket.emit('next_question', {
-                    index: currentQuestionIndex,
-                    type: quizBank[currentQuestionIndex].type,
-                    q: quizBank[currentQuestionIndex].q,
-                    a: quizBank[currentQuestionIndex].a,
-                    total: Object.values(players).filter(p => p.online).length
-                });
-            } else if (gameState === "reveal") {
-                targetSocket.emit('reveal_answer', {
-                    correct: quizBank[currentQuestionIndex].cor,
-                    desc: quizBank[currentQuestionIndex].desc,
-                    ranking: Object.values(players).sort((a, b) => b.score - a.score)
-                });
-            }
-        }
-    }
 
     socket.on('disconnect', () => {
         if (socket.userID && players[socket.userID]) {
