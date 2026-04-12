@@ -8,6 +8,7 @@
         body { font-family: sans-serif; text-align: center; background: #f0f2f5; margin: 0; padding-bottom: 80px; }
         .screen { display: none; padding: 20px; }
         .active { display: block; }
+        input { width: 80%; padding: 12px; margin: 5px 0; border-radius: 8px; border: 1px solid #ddd; }
         .btn-choice { width: 100%; padding: 18px; margin: 8px 0; font-size: 1.1rem; border: none; border-radius: 12px; background: white; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         .btn-choice.selected { background: #4a90e2 !important; color: white; border: 2px solid #2c3e50; }
         #submit-btn { display: none; background: #27ae60; color: white; padding: 15px; width: 100%; border-radius: 12px; font-weight: bold; margin-top: 10px; border:none; }
@@ -20,14 +21,18 @@
 
     <div id="screen-intro" class="screen active">
         <h1>🎮 퀴즈 서바이벌</h1>
-        <button onclick="changeScreen('screen-nickname')">참여하기</button>
+        <button onclick="changeScreen('screen-nickname')" style="padding:15px 30px; background:#4a90e2; color:white; border:none; border-radius:10px;">참여하기</button>
         <p><small onclick="toggleHostPanel()" style="color:#ccc; cursor:pointer;">방장용 메뉴</small></p>
     </div>
 
     <div id="screen-nickname" class="screen">
-        <h2>닉네임 입력</h2>
-        <input type="text" id="nickname-input" placeholder="닉네임">
-        <button onclick="joinWaitingRoom()">입장</button>
+        <h2>로그인 / 참여</h2>
+        <p style="font-size: 0.8rem; color: #666;">나중에 재접속 시 아이디와 비번이 필요합니다.</p>
+        <input type="text" id="user-id" placeholder="아이디(영문/숫자)">
+        <input type="password" id="user-pw" placeholder="비밀번호">
+        <input type="text" id="nickname-input" placeholder="표시될 닉네임">
+        <br>
+        <button onclick="joinWaitingRoom()" style="margin-top:20px; padding:15px 30px; background:#4a90e2; color:white; border:none; border-radius:10px;">참여하기</button>
     </div>
 
     <div id="screen-waiting" class="screen">
@@ -66,14 +71,6 @@
         <button onclick="socket.emit('request_reveal', document.getElementById('host-pw').value)" style="background:orange">정답공개</button>
     </div>
 
-    <div id="screen-nickname" class="screen">
-    <h2>로그인 / 참여</h2>
-    <input type="text" id="user-id" placeholder="아이디(영문/숫자)">
-    <input type="password" id="user-pw" placeholder="비밀번호">
-    <input type="text" id="nickname-input" placeholder="표시될 닉네임">
-    <button onclick="joinWaitingRoom()">참여하기</button>
-    </div>
-
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
@@ -90,18 +87,26 @@
             panel.style.display = (panel.style.display === 'flex') ? 'none' : 'flex';
         }
 
+        // 로그인/입장 함수
         function joinWaitingRoom() {
-            const nick = document.getElementById('nickname-input').value;
-            if(!nick) return;
-            socket.emit('join_waiting_room', nick);
+            const userID = document.getElementById('user-id').value;
+            const userPW = document.getElementById('user-pw').value;
+            const nickname = document.getElementById('nickname-input').value;
+            
+            if(!userID || !userPW || !nickname) {
+                return alert("모든 정보를 입력하세요!"); [cite: 395]
+            }
+            
+            // 서버로 로그인 정보 객체 전송 [cite: 395]
+            socket.emit('join_waiting_room', { userID, userPW, nickname });
             changeScreen('screen-waiting');
         }
 
-        // 문제 수신 (하나의 핸들러로 통합)
+        // 문제 수신
         socket.on('next_question', (data) => {
             changeScreen('screen-quiz');
             currentSelected = [];
-            currentType = data.type; // 이제 서버가 type을 보내줍니다!
+            currentType = data.type; 
             
             document.getElementById('question-text').innerText = (data.index + 1) + ". " + data.q;
             document.getElementById('quiz-type-tag').innerText = (data.type === 'multi') ? "[중복 선택 가능]" : "[하나만 선택]";
@@ -119,12 +124,11 @@
             });
         
             document.getElementById('submit-btn').style.display = (data.type === 'multi') ? 'block' : 'none';
-            document.getElementById('choices-area').style.display = 'block';
         });
 
         function selectChoice(idx, btnElement) {
             if (currentType === 'single' || currentType === 'ox') {
-                socket.emit('submit_answer', [idx]); // 배열 형태로 제출
+                socket.emit('submit_answer', [idx]); 
                 document.getElementById('choices-area').style.display = 'none';
             } else {
                 if (currentSelected.includes(idx)) {
@@ -144,19 +148,7 @@
             document.getElementById('submit-btn').style.display = 'none';
         }
 
-        function joinWaitingRoom() {
-        const userID = document.getElementById('user-id').value;
-        const userPW = document.getElementById('user-pw').value;
-        const nickname = document.getElementById('nickname-input').value;
-        
-        if(!userID || !userPW || !nickname) return alert("모든 정보를 입력하세요!");
-        
-        // 서버로 객체 전송
-        socket.emit('join_waiting_room', { userID, userPW, nickname });
-        changeScreen('screen-waiting');
-        }
-
-        // 기타 이벤트 핸들러들
+        // 서버 이벤트 수신
         socket.on('update_user_list', (users) => {
             document.getElementById('count-num').innerText = users.length;
             document.getElementById('user-list').innerHTML = users.join(', ');
@@ -168,7 +160,6 @@
 
         socket.on('reveal_answer', (data) => {
             changeScreen('screen-reveal');
-            // 정답이 배열이므로 1을 더해 가독성 있게 출력
             const correctText = data.correct.map(i => (i + 1) + "번").join(', ');
             document.getElementById('correct-ans-text').innerText = "정답: " + correctText;
             document.getElementById('desc-text').innerText = data.desc;
@@ -179,12 +170,12 @@
 
         socket.on('game_over', (ranks) => {
             changeScreen('screen-result');
-            document.getElementById('final-rank-list').innerHTML = ranks.map((r, i) => `<div>${i+1}등: ${r.nickname} (${r.score}점)</div>`).join('');
+            document.getElementById('final-rank-list').innerHTML = ranks.map((r, i) => 
+                `<div>${i+1}등: ${r.nickname} (${r.score}점)</div>`
+            ).join('');
         });
 
         socket.on('error_msg', (m) => alert(m));
-
-        
     </script>
 </body>
 </html>
