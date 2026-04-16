@@ -192,10 +192,28 @@
 
     socket.on('reveal_answer', (data) => {
         changeScreen('screen-reveal');
-        document.getElementById('reveal-title').innerText = "정답 공개!";
+        document.getElementById('reveal-title').innerText = "결과 공개!";
         document.getElementById('correct-desc').innerText = data.desc;
-        document.getElementById('total-correct-count').innerText = "총 정답 인원: " + data.totalCorrect + "명";
-        document.getElementById('random-correct-list').innerText = data.randomFive.length > 0 ? data.randomFive.join(', ') : '정답자가 없습니다.';
+
+        const listDiv = document.getElementById('random-correct-list');
+        const countP = document.getElementById('total-correct-count');
+
+        if (data.type === "balance") {
+            // 밸런스 게임 결과 출력
+            countP.innerText = "다수결 투표 현황";
+            listDiv.innerHTML = data.counts.map((count, i) => {
+                const isWinner = data.winners.includes(i);
+                return `
+                    <div style="margin:10px 0; padding:10px; background:${isWinner?'#e1f5fe':'#f5f5f5'}; border-radius:10px;">
+                        ${isWinner ? '👑 ' : ''}<b>${i+1}번: ${count}명</b> 선택
+                    </div>
+                `;
+            }).join('');
+        } else {
+            // 기존 퀴즈 결과 출력 [cite: 1424]
+            countP.innerText = "총 정답 인원: " + data.totalCorrect + "명";
+            listDiv.innerText = data.randomFive.length > 0 ? data.randomFive.join(', ') : '정답자가 없습니다.';
+        }
         renderUserList();
     });
 
