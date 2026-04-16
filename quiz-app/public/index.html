@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>이 송 퀴 ver 1.2.2</title>
+    <title>이 송 퀴 ver 1.2.3</title>
     <style>
         body { font-family: sans-serif; text-align: center; background: #f0f2f5; margin: 0; }
         #main-container { display: flex; min-height: 100vh; }
@@ -20,17 +20,42 @@
         .online { background: #27ae60; box-shadow: 0 0 5px #27ae60; } .offline { background: #95a5a6; }
         .submit-icon { font-size: 1.1rem; }
         @media (max-width: 600px) { #main-container { flex-direction: column; } #user-sidebar { width: 100%; border-left: none; border-top: 1px solid #ddd; } #host-controller { width: 100%; } }
+        .fade-in-text {
+        opacity: 0;
+        transform: translateY(20px);
+        transition: all 0.8s ease;
+        margin: 15px 0;
+        }
+        /* 스크립트로 이 클래스를 붙여주면 나타납니다 */
+        .fade-in-text.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
     </style>
 </head>
 <body>
 <div id="main-container">
     <div id="game-area">
-        <div id="screen-intro" class="screen active">
-            <h1>🎮 이 송 퀴</h1>
-            <input type="text" id="nickname-input" placeholder="닉네임 입력">
-            <button onclick="joinGame()" style="padding:15px 30px; background:#4a90e2; color:white; border:none; border-radius:10px; margin-top:10px;">참여하기</button>
-            <p><small onclick="toggleHostPanel()" style="color:#ccc; cursor:pointer;">방장 메뉴</small></p>
+        <div id="screen-scene1" class="screen active">
+        <h1>🎮 이 송 퀴 - 대기중</h1>
+        <img src="your-image-url.jpg" alt="Intro Image" style="width:80%; border-radius:15px;">
+        <p>닉네임을 입력하고 잠시 기다려주세요!</p>
+        <input type="text" id="nickname-input" placeholder="닉네임 입력">
+        <button onclick="joinGame()">입장하기</button>
         </div>
+
+        <div id="screen-scene2" class="screen">
+        <h2 style="color:#2c3e50; border-bottom:2px solid #ddd; padding-bottom:10px;">📜 퀴즈 설명</h2>
+        <div id="desc-container">
+            <p class="fade-in-text">✅ 퀴즈는 총 3가지 종류가 있습니다.</p>
+            <p class="fade-in-text">1️⃣ OX 퀴즈</p>
+            <p class="fade-in-text">2️⃣ 4지 선다형 (단답형)</p>
+            <p class="fade-in-text">3️⃣ 밸런스 퀴즈 (다수결)</p>
+            <p class="fade-in-text">💡 다수결 퀴즈는 동률 시 모두 점수 획득!</p>
+            <p class="fade-in-text">🔥 상황에 따라 2배 이벤트가 존재합니다.</p>
+            <p class="fade-in-text">🏆 모든 문제 풀이 후 최종 순위가 공개됩니다.</p>
+        </div>
+    </div>
         <div id="screen-waiting" class="screen"><h2>🏠 대기실</h2><p>방장이 시작하기를 기다리고 있습니다...</p></div>
         <div id="screen-quiz" class="screen">
             <div id="remaining-badge" style="background:#ff4757; color:white; padding:5px 12px; border-radius:20px; display:inline-block;">남은 인원: <span id="rem-count">0</span>명</div>
@@ -64,6 +89,25 @@
         const savedName = localStorage.getItem('quiz_nickname');
         if (savedName) document.getElementById('nickname-input').value = savedName;
     };
+
+    // 씬 전환 이벤트 수신
+    socket.on('change_scene', (sceneID) => {
+        changeScreen('screen-' + sceneID);
+        
+        if (sceneID === "scene2") {
+            startDescriptionAnimation();
+        }
+    });
+
+    // 한 줄씩 나타나는 애니메이션 함수
+    function startDescriptionAnimation() {
+        const lines = document.querySelectorAll('#desc-container .fade-in-text');
+        lines.forEach((line, index) => {
+            setTimeout(() => {
+                line.classList.add('visible');
+            }, index * 1000); // 1초 간격으로 한 줄씩 등장
+        });
+    }
 
     function changeScreen(id) {
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
