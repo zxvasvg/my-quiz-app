@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>이 송 퀴 ver 1.2.1</title>
+    <title>이 송 퀴 ver 1.2.2</title>
     <style>
         body { font-family: sans-serif; text-align: center; background: #f0f2f5; margin: 0; }
         #main-container { display: flex; min-height: 100vh; }
@@ -14,10 +14,10 @@
         input { width: 80%; padding: 12px; margin: 5px 0; border-radius: 8px; border: 1px solid #ddd; }
         .btn-choice { width: 100%; padding: 18px; margin: 8px 0; border: none; border-radius: 12px; background: white; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         .btn-choice.selected { background: #4a90e2 !important; color: white; }
-        #host-controller { position: fixed; bottom: 0; left: 0; width: 75%; background: #222; color: white; padding: 10px; display: none; justify-content: center; gap: 8px; flex-wrap: wrap; }
+        #host-controller { position: fixed; bottom: 0; left: 0; width: 75%; background: #222; color: white; padding: 10px; display: none; justify-content: center; gap: 8px; flex-wrap: wrap; z-index: 1000; }
         .user-entry { margin-bottom: 12px; padding-bottom: 5px; border-bottom: 1px solid #eee; display: flex; align-items: center; justify-content: space-between; }
         .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 5px; }
-        .online { background: #27ae60; } .offline { background: #95a5a6; }
+        .online { background: #27ae60; box-shadow: 0 0 5px #27ae60; } .offline { background: #95a5a6; }
         .submit-icon { font-size: 1.1rem; }
         @media (max-width: 600px) { #main-container { flex-direction: column; } #user-sidebar { width: 100%; border-left: none; border-top: 1px solid #ddd; } #host-controller { width: 100%; } }
     </style>
@@ -46,7 +46,7 @@
             <button onclick="socket.emit('request_start', document.getElementById('host-pw').value)">다음단계</button>
             <button onclick="socket.emit('toggle_multiplier', document.getElementById('host-pw').value)" style="background:orange">2배 이벤트</button>
             <button onclick="socket.emit('request_reveal', document.getElementById('host-pw').value)" style="background:blue">정답공개</button>
-            <button onclick="socket.emit('toggle_show_ids', document.getElementById('host-pw').value)" style="background:gray">ID 표시/숨김</button>
+            <button onclick="toggleLocalIDView()" style="background:gray">나만 ID 보기</button>
         </div>
     </div>
     <div id="user-sidebar"><h3>👥 참여자</h3><div id="sidebar-user-list"></div></div>
@@ -56,7 +56,9 @@
 <script>
     const socket = io();
     let currentSelected = [];
-    let currentQuestionIndex = -1; // [추가됨] 클라이언트용 문제 인덱스 변수 선언
+    let currentQuestionIndex = -1; 
+    let lastPlayersData = []; // 참여자 데이터를 로컬에 저장해둡니다
+    let amIShowingIDs = false; // "나만 ID 보기" 상태 플래그
 
     window.onload = () => {
         const savedName = localStorage.getItem('quiz_nickname');
@@ -73,6 +75,14 @@
         panel.style.display = (panel.style.display === 'flex') ? 'none' : 'flex';
     }
 
+    // [추가] 방장 전용 ID 보기 토글 함수
+    function toggleLocalIDView() {
+        const pw = document.getElementById('host-pw').value;
+        if(pw !== '1234') return alert("비밀번호가 틀렸습니다!");
+        amIShowingIDs = !amIShowingIDs;
+        renderUserList(); // 내 화면 리스트 다시 그리기
+    }
+
     function joinGame() {
         const nickname = document.getElementById('nickname-input').value;
         if(!nickname) return alert("닉네임!");
@@ -83,14 +93,14 @@
         changeScreen('screen-waiting');
     }
 
-    socket.on('update_user_list', (data) => {
-        const { players, showIDs } = data;
+    // 사이드바 리스트를 그리는 독립된 함수
+    function renderUserList() {
         const listDiv = document.getElementById('sidebar-user-list');
-        if (!listDiv) return; 
+        if (!listDiv) return;
 
-        listDiv.innerHTML = players.map(u => {
-            const idText = showIDs ? `<br><small style="color:blue">[${u.userID}]</small>` : '';
-            // 제출 아이콘 표시 로직 (정의된 currentQuestionIndex 사용)
+        listDiv.innerHTML = lastPlayersData.map(u => {
+            // 내가 방장 버튼을 눌렀을 때만 파란색 ID가 보입니다
+            const idText = amIShowingIDs ? `<br><small style="color:blue">[ID: ${u.userID}]</small>` : '';
             const submitStatus = (currentQuestionIndex >= 0) ? (u.answered ? '✅' : '⏳') : '';
             return `
                 <div class="user-entry">
@@ -102,12 +112,19 @@
                 </div>
             `;
         }).join('');
+    }
+
+    // 서버에서 참여자 리스트 신호가 올 때
+    socket.on('update_user_list', (data) => {
+        // 데이터 구조가 {players, showIDs}든 [user1, user2]든 대응할 수 있게 방어적으로 짭니다
+        lastPlayersData = data.players || data; 
+        renderUserList();
     });
 
     socket.on('next_question', (data) => {
         changeScreen('screen-quiz');
         currentSelected = [];
-        currentQuestionIndex = data.index; // [추가됨] 서버에서 받은 인덱스 저장
+        currentQuestionIndex = data.index;
         document.getElementById('question-text').innerText = (data.gameState === "tutorial" ? "[연습] " : "") + data.q;
         document.getElementById('rem-count').innerText = data.total;
         const area = document.getElementById('choices-area');
@@ -124,12 +141,14 @@
             area.appendChild(btn);
         });
         document.getElementById('submit-btn').style.display = (data.type === 'multi') ? 'block' : 'none';
+        renderUserList(); // 문제 넘어갈 때 ⏳ 아이콘 동기화
     });
 
     socket.on('reveal_answer', (data) => {
         changeScreen('screen-reveal');
         document.getElementById('correct-ans-text').innerText = "정답 공개!";
         document.getElementById('mid-rank-list').innerHTML = data.ranking.map((r,i) => `<div>${i+1}위: ${r.nickname} (${r.score || 0}점)</div>`).join('');
+        renderUserList();
     });
 
     function finalSubmit() {
@@ -142,8 +161,9 @@
     socket.on('update_remaining', (rem) => { document.getElementById('rem-count').innerText = rem; });
     socket.on('game_over', (ranks) => {
         changeScreen('screen-result');
-        currentQuestionIndex = -1; // 게임 종료 시 인덱스 초기화
+        currentQuestionIndex = -1;
         document.getElementById('final-rank-list').innerHTML = ranks.map((r, i) => `<div>${i+1}등: ${r.nickname} (${r.score || 0}점)</div>`).join('');
+        renderUserList();
     });
 </script>
 </body>
