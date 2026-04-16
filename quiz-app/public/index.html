@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>이 송 퀴 ver 1.3.2</title>
+    <title>이 송 퀴 ver 1.4</title>
     <style>
         body { font-family: sans-serif; text-align: center; background: #f0f2f5; margin: 0; }
         #main-container { display: flex; min-height: 100vh; }
@@ -12,7 +12,7 @@
         .screen { display: none; padding: 10px; }
         .active { display: block; }
         input { width: 80%; padding: 12px; margin: 5px 0; border-radius: 8px; border: 1px solid #ddd; }
-        .btn-choice { width: 100%; padding: 18px; margin: 8px 0; font-size: 1.1rem; border: none; border-radius: 12px; background: white; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .btn-choice { width: 100%; padding: 18px; margin: 8px 0; border: none; border-radius: 12px; background: white; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         .btn-choice.selected { background: #4a90e2 !important; color: white; }
         #host-controller { position: fixed; bottom: 0; left: 0; width: 75%; background: #222; color: white; padding: 10px; display: none; justify-content: center; gap: 8px; flex-wrap: wrap; z-index: 1000; }
         .user-entry { margin-bottom: 12px; padding-bottom: 5px; border-bottom: 1px solid #eee; display: flex; align-items: center; justify-content: space-between; }
@@ -21,6 +21,9 @@
         .submit-icon { font-size: 1.1rem; }
         .fade-in-text { opacity: 0; transform: translateY(20px); transition: all 0.8s ease; margin: 15px 0; }
         .fade-in-text.visible { opacity: 1; transform: translateY(0); }
+        /* 중간 점검 리스트 스타일 */
+        .rank-item { padding: 10px; border-radius: 8px; margin: 5px 0; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .rank-top { background: #f1f9ff; border: 1px solid #4a90e2; font-weight: bold; }
         @media (max-width: 600px) { #main-container { flex-direction: column; } #user-sidebar { width: 100%; border-left: none; border-top: 1px solid #ddd; } #host-controller { width: 100%; } }
     </style>
 </head>
@@ -29,9 +32,8 @@
     <div id="game-area">
         <div id="screen-scene1" class="screen active">
             <h1>🎮 이 송 퀴 - 대기중</h1>
-            <p>닉네임을 입력하고 입장하세요!</p>
             <input type="text" id="nickname-input" placeholder="닉네임 입력">
-            <button onclick="joinGame()" style="padding:15px 30px; background:#4a90e2; color:white; border:none; border-radius:10px; margin-top:10px;">입장하기</button>
+            <button onclick="joinGame()" style="padding:15px 30px; background:#4a90e2; color:white; border:none; border-radius:10px;">입장하기</button>
         </div>
 
         <div id="screen-scene2" class="screen">
@@ -54,14 +56,28 @@
             <button id="submit-btn" onclick="finalSubmit()" style="display:none; background:#27ae60; color:white; padding:15px; width:100%; border-radius:12px; border:none;">정답 제출</button>
         </div>
 
-        <div id="screen-reveal" class="screen"><h2 id="correct-ans-text"></h2><div id="mid-rank-list"></div></div>
-        <div id="screen-result" class="screen"><h1>🏆 결과</h1><div id="final-rank-list"></div><button onclick="location.reload()">재시작</button></div>
+        <div id="screen-reveal" class="screen">
+            <h2 id="reveal-title" style="color:#27ae60;"></h2>
+            <p id="correct-desc" style="font-size:1.1rem; font-weight:bold;"></p>
+            <hr>
+            <h3>🎯 정답을 맞힌 운 좋은 5명</h3>
+            <div id="random-correct-list" style="font-size:1.2rem; color:#4a90e2; margin:20px 0;"></div>
+            <p id="total-correct-count" style="color:#666;"></p>
+        </div>
+
+        <div id="screen-mid-rank" class="screen">
+            <h2>📊 실시간 중간 순위</h2>
+            <div id="mid-rank-container" style="max-width:400px; margin:0 auto; text-align:left;"></div>
+        </div>
+
+        <div id="screen-result" class="screen"><h1>🏆 최종 결과</h1><div id="final-rank-list"></div><button onclick="location.reload()">재시작</button></div>
 
         <div id="host-controller">
             <input type="password" id="host-pw" style="width:50px" placeholder="PW">
             <button onclick="socket.emit('request_start', document.getElementById('host-pw').value)">다음단계</button>
-            <button onclick="socket.emit('toggle_multiplier', document.getElementById('host-pw').value)" style="background:orange">2배 이벤트</button>
             <button onclick="socket.emit('request_reveal', document.getElementById('host-pw').value)" style="background:blue">정답공개</button>
+            <button onclick="socket.emit('request_mid_rank', document.getElementById('host-pw').value)" style="background:green">중간점검</button>
+            <button onclick="socket.emit('toggle_multiplier', document.getElementById('host-pw').value)" style="background:orange">2배 이벤트</button>
             <button onclick="toggleLocalIDView()" style="background:gray">나만 ID 보기</button>
         </div>
     </div>
@@ -95,11 +111,7 @@
 
     function toggleHostPanel() {
         const panel = document.getElementById('host-controller');
-        if (panel.style.display === 'flex') {
-            panel.style.display = 'none';
-        } else {
-            panel.style.display = 'flex';
-        }
+        panel.style.display = (panel.style.display === 'flex') ? 'none' : 'flex';
     }
 
     function startDescriptionAnimation() {
@@ -116,7 +128,7 @@
 
     function toggleLocalIDView() {
         const pw = document.getElementById('host-pw').value;
-        if(pw !== '1234') return alert("비밀번호가 틀렸습니다!");
+        if(pw !== '1234') return alert("비밀번호!");
         amIShowingIDs = !amIShowingIDs;
         renderUserList();
     }
@@ -137,11 +149,12 @@
         listDiv.innerHTML = lastPlayersData.map(u => {
             const idText = amIShowingIDs ? `<br><small style="color:blue">[ID: ${u.userID}]</small>` : '';
             const submitStatus = (currentQuestionIndex >= 0) ? (u.answered ? '✅' : '⏳') : '';
+            // 사이드바에서 (점수) 부분 제거 
             return `
                 <div class="user-entry">
                     <div>
                         <span class="status-dot ${u.online?'online':'offline'}"></span>
-                        <span>${u.nickname} (${u.score || 0}점)${idText}</span>
+                        <span>${u.nickname}${idText}</span>
                     </div>
                     <span class="submit-icon">${submitStatus}</span>
                 </div>
@@ -179,9 +192,24 @@
 
     socket.on('reveal_answer', (data) => {
         changeScreen('screen-reveal');
-        document.getElementById('correct-ans-text').innerText = "정답 공개!";
-        document.getElementById('mid-rank-list').innerHTML = data.ranking.map((r,i) => `<div>${i+1}위: ${r.nickname} (${r.score || 0}점)</div>`).join('');
+        document.getElementById('reveal-title').innerText = "정답 공개!";
+        document.getElementById('correct-desc').innerText = data.desc;
+        document.getElementById('total-correct-count').innerText = "총 정답 인원: " + data.totalCorrect + "명";
+        document.getElementById('random-correct-list').innerText = data.randomFive.length > 0 ? data.randomFive.join(', ') : '정답자가 없습니다.';
         renderUserList();
+    });
+
+    socket.on('show_mid_rank', (formattedRank) => {
+        changeScreen('screen-mid-rank');
+        const container = document.getElementById('mid-rank-container');
+        container.innerHTML = formattedRank.map(r => {
+            const isTop = r.rank <= 3;
+            return `
+                <div class="rank-item ${isTop ? 'rank-top' : ''}">
+                    ${r.rank}등 ${isTop ? r.name : ''} ${r.score}점
+                </div>
+            `;
+        }).join('');
     });
 
     function finalSubmit() {
