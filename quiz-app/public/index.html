@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>이 송 퀴 ver 1.2</title>
+    <title>이 송 퀴 ver 1.2.1</title>
     <style>
         body { font-family: sans-serif; text-align: center; background: #f0f2f5; margin: 0; }
         #main-container { display: flex; min-height: 100vh; }
@@ -56,6 +56,7 @@
 <script>
     const socket = io();
     let currentSelected = [];
+    let currentQuestionIndex = -1; // [추가됨] 클라이언트용 문제 인덱스 변수 선언
 
     window.onload = () => {
         const savedName = localStorage.getItem('quiz_nickname');
@@ -82,13 +83,14 @@
         changeScreen('screen-waiting');
     }
 
-    // 사이드바 업데이트: 제출 아이콘 추가 및 undefined 방지 [cite: 517, 607]
     socket.on('update_user_list', (data) => {
         const { players, showIDs } = data;
         const listDiv = document.getElementById('sidebar-user-list');
+        if (!listDiv) return; 
+
         listDiv.innerHTML = players.map(u => {
             const idText = showIDs ? `<br><small style="color:blue">[${u.userID}]</small>` : '';
-            // 제출 완료 시 ✅, 미제출 시 ⏳ (문제 진행 중일 때만 표시)
+            // 제출 아이콘 표시 로직 (정의된 currentQuestionIndex 사용)
             const submitStatus = (currentQuestionIndex >= 0) ? (u.answered ? '✅' : '⏳') : '';
             return `
                 <div class="user-entry">
@@ -105,6 +107,7 @@
     socket.on('next_question', (data) => {
         changeScreen('screen-quiz');
         currentSelected = [];
+        currentQuestionIndex = data.index; // [추가됨] 서버에서 받은 인덱스 저장
         document.getElementById('question-text').innerText = (data.gameState === "tutorial" ? "[연습] " : "") + data.q;
         document.getElementById('rem-count').innerText = data.total;
         const area = document.getElementById('choices-area');
@@ -139,6 +142,7 @@
     socket.on('update_remaining', (rem) => { document.getElementById('rem-count').innerText = rem; });
     socket.on('game_over', (ranks) => {
         changeScreen('screen-result');
+        currentQuestionIndex = -1; // 게임 종료 시 인덱스 초기화
         document.getElementById('final-rank-list').innerHTML = ranks.map((r, i) => `<div>${i+1}등: ${r.nickname} (${r.score || 0}점)</div>`).join('');
     });
 </script>
