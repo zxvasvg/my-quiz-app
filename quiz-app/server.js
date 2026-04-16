@@ -8,37 +8,41 @@ app.use(express.static('public'));
 let players = {}; 
 let currentQuestionIndex = -1;
 let submittedCount = 0; 
-let gameState = "intro"; // intro, tutorial, waiting, quiz, reveal
-let scoreMultiplier = 1; // 점수 이벤트 배율
-let showIDs = false; //디버그용 ID 표시 상태
+let gameState = "intro"; 
+let scoreMultiplier = 1; 
+let showIDs = false; // 디버그용 ID 표시 상태 [cite: 600]
 
 const quizBank = [
-    { type: "single", q: "연습문제: 당신은 제주도에 있나요?", a: ["네", "아니오"], cor: [0], desc: "튜토리얼 완료! 이제 대기실로 이동합니다." }, // 0번은 튜토리얼용
+    { type: "single", q: "연습문제: 준비되셨나요?", a: ["네", "아니오"], cor: [0], desc: "튜토리얼 완료!" },
     { type: "single", q: "한라산의 높이는?", a: ["1,947m", "1,950m", "2,024m", "1,850m"], cor: [0], desc: "1,947m입니다!" },
     { type: "multi", q: "닌텐도 기기가 아닌 것은?", a: ["스위치", "플스", "게임보이", "엑박"], cor: [1, 3], desc: "플스는 소니, 엑박은 MS 제품입니다." }
 ];
 
 io.on('connection', (socket) => {
-    // 접속 시 자동 로직 실행 [cite: 531, 544]
     socket.on('join_waiting_room', (data) => {
         const { userID, nickname } = data;
-
-        // 유저 정보 저장 또는 업데이트
-        players[userID] = { 
-            ...players[userID], // 기존 점수 등이 있다면 유지
-            userID, 
-            nickname, 
-            socketID: socket.id, 
-            online: true 
-        };
-
+        
+        // [수정] 새 유저일 경우 점수와 상태를 확실히 초기화 
+        if (!players[userID]) {
+            players[userID] = { 
+                userID, nickname, 
+                score: 0, 
+                answered: false, 
+                socketID: socket.id, 
+                online: true 
+            };
+        } else {
+            // 기존 유저인 경우 닉네임과 접속 상태만 업데이트
+            players[userID].nickname = nickname;
+            players[userID].socketID = socket.id;
+            players[userID].online = true;
+        }
+        
         socket.userID = userID;
-
-        // 접속 시 현재 디버그 상태(showIDs)를 포함하여 리스트 전송
         io.emit('update_user_list', { players: Object.values(players), showIDs });
     });
 
-    // [추가] 방장의 ID 표시 토글 요청
+    // 디버그용 ID 토글 [cite: 601, 606]
     socket.on('toggle_show_ids', (password) => {
         if (password === '1234') {
             showIDs = !showIDs;
@@ -46,36 +50,27 @@ io.on('connection', (socket) => {
         }
     });
 
-    // 방장의 컨트롤 신호 처리 [cite: 552]
     socket.on('request_start', (password) => {
         if (password === '1234') {
             currentQuestionIndex++;
             submittedCount = 0;
-            scoreMultiplier = 1; // 새 문제 시작 시 배율 초기화
+            scoreMultiplier = 1;
+            gameState = (currentQuestionIndex === 0) ? "tutorial" : "quiz";
             
-            if (currentQuestionIndex === 0) gameState = "tutorial";
-            else if (currentQuestionIndex < quizBank.length) gameState = "quiz";
-            else { 
+            if (currentQuestionIndex < quizBank.length) {
+                Object.values(players).forEach(p => p.answered = false); // 제출 상태 초기화
+                io.emit('next_question', {
+                    index: currentQuestionIndex,
+                    gameState: gameState,
+                    type: quizBank[currentQuestionIndex].type,
+                    q: quizBank[currentQuestionIndex].q,
+                    a: quizBank[currentQuestionIndex].a,
+                    total: Object.values(players).filter(p => p.online).length
+                });
+                io.emit('update_user_list', { players: Object.values(players), showIDs });
+            } else {
                 io.emit('game_over', Object.values(players).sort((a,b) => b.score - a.score));
-                return;
             }
-
-            io.emit('next_question', {
-                index: currentQuestionIndex,
-                gameState: gameState,
-                type: quizBank[currentQuestionIndex].type,
-                q: quizBank[currentQuestionIndex].q,
-                a: quizBank[currentQuestionIndex].a,
-                total: Object.values(players).filter(p => p.online).length
-            });
-        }
-    });
-
-    // 2배 이벤트 토글 (방장 전용)
-    socket.on('toggle_multiplier', (password) => {
-        if (password === '1234') {
-            scoreMultiplier = (scoreMultiplier === 1) ? 2 : 1;
-            io.emit('multiplier_update', scoreMultiplier);
         }
     });
 
@@ -88,10 +83,11 @@ io.on('connection', (socket) => {
             const isCorrect = selectedIndices.length === correctAnswers.length &&
                               selectedIndices.every(val => correctAnswers.includes(val));
             
-            if (isCorrect && gameState !== "tutorial") { 
-                p.score += (10 * scoreMultiplier); // 이벤트 배율 적용
-            }
+            if (isCorrect && gameState !== "tutorial") p.score += (10 * scoreMultiplier);
+            
+            // 실시간 제출 상태 반영을 위해 리스트 전송 
             io.emit('update_remaining', Object.values(players).filter(p => p.online).length - submittedCount);
+            io.emit('update_user_list', { players: Object.values(players), showIDs });
         }
     });
 
