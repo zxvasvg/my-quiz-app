@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>이 송 퀴 ver 0.03</title>
+    <title>이 송 퀴 ver 1.1</title>
     <style>
         body { font-family: sans-serif; text-align: center; background: #f0f2f5; margin: 0; }
         #main-container { display: flex; min-height: 100vh; }
@@ -27,7 +27,7 @@
         <div id="event-banner">🔥 지금 정답을 맞히면 점수가 2배! 🔥</div>
         
         <div id="screen-intro" class="screen active">
-            <h1>🎮 이 송 퀴 0.03</h1>
+            <h1>🎮 이 송 퀴 1.1</h1>
             <input type="text" id="nickname-input" placeholder="닉네임 입력">
             <button onclick="joinGame()" style="padding:15px 30px; background:#4a90e2; color:white; border:none; border-radius:10px; margin-top:10px;">참여하기</button>
             <p><small onclick="toggleHostPanel()" style="color:#ccc; cursor:pointer;">방장 메뉴</small></p>
@@ -69,6 +69,13 @@
     const socket = io(); // 접속 시 서버 connection 발생 [cite: 531, 533]
     let currentSelected = [];
 
+    window.onload = () => {
+        const savedName = localStorage.getItem('quiz_nickname');
+        if (savedName) {
+            document.getElementById('nickname-input').value = savedName;
+        }
+    };
+
     function changeScreen(id) {
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
         document.getElementById(id).classList.add('active');
@@ -81,10 +88,14 @@
 
     function joinGame() {
         const nickname = document.getElementById('nickname-input').value;
-        if(!nickname) return alert("닉네임!");
+        if(!nickname) return alert("닉네임을 입력하세요!");
+        
+        // 기기 ID는 유지하되, 닉네임은 현재 입력값으로 새로 저장
         let userID = localStorage.getItem('quiz_id') || 'user_' + Math.random().toString(36).substr(2, 9);
         localStorage.setItem('quiz_id', userID);
-        socket.emit('join_waiting_room', { userID, nickname }); // 서버로 신호 전송 [cite: 551]
+        localStorage.setItem('quiz_nickname', nickname); // [수정] 새 닉네임으로 덮어쓰기
+
+        socket.emit('join_waiting_room', { userID, nickname });
         changeScreen('screen-waiting');
     }
 
@@ -118,9 +129,19 @@
         document.getElementById('event-banner').style.display = (m === 2) ? 'block' : 'none';
     });
 
-    socket.on('update_user_list', (users) => {
-        const list = document.getElementById('sidebar-user-list');
-        list.innerHTML = users.map(u => `<div style="font-size:0.9rem; margin-bottom:5px;"><span class="status-dot ${u.online?'online':'offline'}"></span>${u.nickname} (${u.score}점)</div>`).join('');
+    // [개선] 사이드바 업데이트 시 ID 표시 여부 적용
+    socket.on('update_user_list', (data) => {
+        const { players, showIDs } = data;
+        const listDiv = document.getElementById('sidebar-user-list');
+        listDiv.innerHTML = players.map(u => {
+            const idText = showIDs ? `<br><small style="color:blue">[${u.userID}]</small>` : '';
+            return `
+                <div class="user-entry">
+                    <span class="status-dot ${u.online?'online':'offline'}"></span>
+                    <span>${u.nickname} (${u.score}점)${idText}</span>
+                </div>
+            `;
+        }).join('');
     });
 
     socket.on('update_remaining', (rem) => { document.getElementById('rem-count').innerText = rem; });

@@ -10,6 +10,7 @@ let currentQuestionIndex = -1;
 let submittedCount = 0; 
 let gameState = "intro"; // intro, tutorial, waiting, quiz, reveal
 let scoreMultiplier = 1; // 점수 이벤트 배율
+let showIDs = false; //디버그용 ID 표시 상태
 
 const quizBank = [
     { type: "single", q: "연습문제: 당신은 제주도에 있나요?", a: ["네", "아니오"], cor: [0], desc: "튜토리얼 완료! 이제 대기실로 이동합니다." }, // 0번은 튜토리얼용
@@ -21,14 +22,28 @@ io.on('connection', (socket) => {
     // 접속 시 자동 로직 실행 [cite: 531, 544]
     socket.on('join_waiting_room', (data) => {
         const { userID, nickname } = data;
-        if (!players[userID]) {
-            players[userID] = { userID, nickname, score: 0, answered: false, socketID: socket.id, online: true };
-        } else {
-            players[userID].socketID = socket.id;
-            players[userID].online = true;
-        }
+
+        // 유저 정보 저장 또는 업데이트
+        players[userID] = { 
+            ...players[userID], // 기존 점수 등이 있다면 유지
+            userID, 
+            nickname, 
+            socketID: socket.id, 
+            online: true 
+        };
+
         socket.userID = userID;
-        io.emit('update_user_list', Object.values(players));
+
+        // 접속 시 현재 디버그 상태(showIDs)를 포함하여 리스트 전송
+        io.emit('update_user_list', { players: Object.values(players), showIDs });
+    });
+
+    // [추가] 방장의 ID 표시 토글 요청
+    socket.on('toggle_show_ids', (password) => {
+        if (password === '1234') {
+            showIDs = !showIDs;
+            io.emit('update_user_list', { players: Object.values(players), showIDs });
+        }
     });
 
     // 방장의 컨트롤 신호 처리 [cite: 552]
@@ -83,7 +98,7 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         if (socket.userID && players[socket.userID]) {
             players[socket.userID].online = false;
-            io.emit('update_user_list', Object.values(players));
+            io.emit('update_user_list', { players: Object.values(players), showIDs });
         }
     });
 });
