@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>이 송 퀴 ver 1.2.3</title>
+    <title>이 송 퀴 ver 1.3.1</title>
     <style>
         body { font-family: sans-serif; text-align: center; background: #f0f2f5; margin: 0; }
         #main-container { display: flex; min-height: 100vh; }
@@ -19,50 +19,41 @@
         .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 5px; }
         .online { background: #27ae60; box-shadow: 0 0 5px #27ae60; } .offline { background: #95a5a6; }
         .submit-icon { font-size: 1.1rem; }
+        .fade-in-text { opacity: 0; transform: translateY(20px); transition: all 0.8s ease; margin: 15px 0; }
+        .fade-in-text.visible { opacity: 1; transform: translateY(0); }
         @media (max-width: 600px) { #main-container { flex-direction: column; } #user-sidebar { width: 100%; border-left: none; border-top: 1px solid #ddd; } #host-controller { width: 100%; } }
-        .fade-in-text {
-        opacity: 0;
-        transform: translateY(20px);
-        transition: all 0.8s ease;
-        margin: 15px 0;
-        }
-        /* 스크립트로 이 클래스를 붙여주면 나타납니다 */
-        .fade-in-text.visible {
-            opacity: 1;
-            transform: translateY(0);
-        }
     </style>
 </head>
 <body>
 <div id="main-container">
     <div id="game-area">
         <div id="screen-scene1" class="screen active">
-        <h1>🎮 이 송 퀴 - 대기중</h1>
-        <img src="your-image-url.jpg" alt="Intro Image" style="width:80%; border-radius:15px;">
-        <p>닉네임을 입력하고 잠시 기다려주세요!</p>
-        <input type="text" id="nickname-input" placeholder="닉네임 입력">
-        <button onclick="joinGame()">입장하기</button>
+            <h1>🎮 이 송 퀴 - 대기중</h1>
+            <p>닉네임을 입력하고 입장하세요!</p>
+            <input type="text" id="nickname-input" placeholder="닉네임 입력">
+            <button onclick="joinGame()" style="padding:15px 30px; background:#4a90e2; color:white; border:none; border-radius:10px;">입장하기</button>
         </div>
 
         <div id="screen-scene2" class="screen">
-        <h2 style="color:#2c3e50; border-bottom:2px solid #ddd; padding-bottom:10px;">📜 퀴즈 설명</h2>
-        <div id="desc-container">
-            <p class="fade-in-text">✅ 퀴즈는 총 3가지 종류가 있습니다.</p>
-            <p class="fade-in-text">1️⃣ OX 퀴즈</p>
-            <p class="fade-in-text">2️⃣ 4지 선다형 (단답형)</p>
-            <p class="fade-in-text">3️⃣ 밸런스 퀴즈 (다수결)</p>
-            <p class="fade-in-text">💡 다수결 퀴즈는 동률 시 모두 점수 획득!</p>
-            <p class="fade-in-text">🔥 상황에 따라 2배 이벤트가 존재합니다.</p>
-            <p class="fade-in-text">🏆 모든 문제 풀이 후 최종 순위가 공개됩니다.</p>
+            <h2 style="color:#2c3e50; border-bottom:2px solid #ddd; padding-bottom:10px;">📜 퀴즈 설명</h2>
+            <div id="desc-container">
+                <p class="fade-in-text">✅ 퀴즈는 총 3가지 종류가 있습니다.</p>
+                <p class="fade-in-text">1️⃣ OX 퀴즈</p>
+                <p class="fade-in-text">2️⃣ 4지 선다형 (단답형)</p>
+                <p class="fade-in-text">3️⃣ 밸런스 퀴즈 (다수결)</p>
+                <p class="fade-in-text">💡 다수결 퀴즈는 동률 시 모두 점수 획득!</p>
+                <p class="fade-in-text">🔥 상황에 따라 2배 이벤트가 존재합니다.</p>
+                <p class="fade-in-text">🏆 모든 문제 풀이 후 최종 순위가 공개됩니다.</p>
+            </div>
         </div>
-    </div>
-        <div id="screen-waiting" class="screen"><h2>🏠 대기실</h2><p>방장이 시작하기를 기다리고 있습니다...</p></div>
+
         <div id="screen-quiz" class="screen">
             <div id="remaining-badge" style="background:#ff4757; color:white; padding:5px 12px; border-radius:20px; display:inline-block;">남은 인원: <span id="rem-count">0</span>명</div>
             <h2 id="question-text"></h2>
             <div id="choices-area"></div>
             <button id="submit-btn" onclick="finalSubmit()" style="display:none; background:#27ae60; color:white; padding:15px; width:100%; border-radius:12px; border:none;">정답 제출</button>
         </div>
+
         <div id="screen-reveal" class="screen"><h2 id="correct-ans-text"></h2><div id="mid-rank-list"></div></div>
         <div id="screen-result" class="screen"><h1>🏆 결과</h1><div id="final-rank-list"></div><button onclick="location.reload()">재시작</button></div>
 
@@ -74,7 +65,14 @@
             <button onclick="toggleLocalIDView()" style="background:gray">나만 ID 보기</button>
         </div>
     </div>
-    <div id="user-sidebar"><h3>👥 참여자</h3><div id="sidebar-user-list"></div></div>
+
+    <div id="user-sidebar">
+        <h3 style="display:flex; justify-content:space-between; align-items:center;">
+            👥 참여자
+            <small onclick="toggleHostPanel()" style="color:#ccc; cursor:pointer; font-size:0.6rem;">관리</small>
+        </h3>
+        <div id="sidebar-user-list"></div>
+    </div>
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
@@ -82,32 +80,13 @@
     const socket = io();
     let currentSelected = [];
     let currentQuestionIndex = -1; 
-    let lastPlayersData = []; // 참여자 데이터를 로컬에 저장해둡니다
-    let amIShowingIDs = false; // "나만 ID 보기" 상태 플래그
+    let lastPlayersData = [];
+    let amIShowingIDs = false;
 
     window.onload = () => {
         const savedName = localStorage.getItem('quiz_nickname');
         if (savedName) document.getElementById('nickname-input').value = savedName;
     };
-
-    // 씬 전환 이벤트 수신
-    socket.on('change_scene', (sceneID) => {
-        changeScreen('screen-' + sceneID);
-        
-        if (sceneID === "scene2") {
-            startDescriptionAnimation();
-        }
-    });
-
-    // 한 줄씩 나타나는 애니메이션 함수
-    function startDescriptionAnimation() {
-        const lines = document.querySelectorAll('#desc-container .fade-in-text');
-        lines.forEach((line, index) => {
-            setTimeout(() => {
-                line.classList.add('visible');
-            }, index * 1000); // 1초 간격으로 한 줄씩 등장
-        });
-    }
 
     function changeScreen(id) {
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -119,12 +98,23 @@
         panel.style.display = (panel.style.display === 'flex') ? 'none' : 'flex';
     }
 
-    // [추가] 방장 전용 ID 보기 토글 함수
+    function startDescriptionAnimation() {
+        const lines = document.querySelectorAll('#desc-container .fade-in-text');
+        lines.forEach((line, index) => {
+            setTimeout(() => line.classList.add('visible'), index * 1000); [cite: 651]
+        });
+    }
+
+    socket.on('change_scene', (sceneID) => {
+        changeScreen('screen-' + sceneID);
+        if (sceneID === "scene2") startDescriptionAnimation(); [cite: 651]
+    });
+
     function toggleLocalIDView() {
         const pw = document.getElementById('host-pw').value;
         if(pw !== '1234') return alert("비밀번호가 틀렸습니다!");
-        amIShowingIDs = !amIShowingIDs;
-        renderUserList(); // 내 화면 리스트 다시 그리기
+        amIShowingIDs = !amIShowingIDs; [cite: 636]
+        renderUserList();
     }
 
     function joinGame() {
@@ -134,18 +124,15 @@
         localStorage.setItem('quiz_id', userID);
         localStorage.setItem('quiz_nickname', nickname);
         socket.emit('join_waiting_room', { userID, nickname });
-        changeScreen('screen-waiting');
+        changeScreen('screen-scene1'); // 대기실 상태 유지
     }
 
-    // 사이드바 리스트를 그리는 독립된 함수
     function renderUserList() {
         const listDiv = document.getElementById('sidebar-user-list');
         if (!listDiv) return;
-
         listDiv.innerHTML = lastPlayersData.map(u => {
-            // 내가 방장 버튼을 눌렀을 때만 파란색 ID가 보입니다
-            const idText = amIShowingIDs ? `<br><small style="color:blue">[ID: ${u.userID}]</small>` : '';
-            const submitStatus = (currentQuestionIndex >= 0) ? (u.answered ? '✅' : '⏳') : '';
+            const idText = amIShowingIDs ? `<br><small style="color:blue">[ID: ${u.userID}]</small>` : ''; [cite: 636, 641]
+            const submitStatus = (currentQuestionIndex >= 0) ? (u.answered ? '✅' : '⏳') : ''; [cite: 616]
             return `
                 <div class="user-entry">
                     <div>
@@ -158,9 +145,7 @@
         }).join('');
     }
 
-    // 서버에서 참여자 리스트 신호가 올 때
     socket.on('update_user_list', (data) => {
-        // 데이터 구조가 {players, showIDs}든 [user1, user2]든 대응할 수 있게 방어적으로 짭니다
         lastPlayersData = data.players || data; 
         renderUserList();
     });
@@ -172,7 +157,7 @@
         document.getElementById('question-text').innerText = (data.gameState === "tutorial" ? "[연습] " : "") + data.q;
         document.getElementById('rem-count').innerText = data.total;
         const area = document.getElementById('choices-area');
-        area.innerHTML = ''; area.style.display = 'block';
+        area.innerHTML = ''; area.style.display = 'block'; [cite: 579]
         data.a.forEach((choice, i) => {
             const btn = document.createElement('button');
             btn.className = 'btn-choice'; btn.innerText = choice;
@@ -185,7 +170,7 @@
             area.appendChild(btn);
         });
         document.getElementById('submit-btn').style.display = (data.type === 'multi') ? 'block' : 'none';
-        renderUserList(); // 문제 넘어갈 때 ⏳ 아이콘 동기화
+        renderUserList();
     });
 
     socket.on('reveal_answer', (data) => {
