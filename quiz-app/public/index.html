@@ -3,62 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>이 송 퀴 ver 1.7 (Prize Pro)</title>
+    <title>이 송 퀴 ver 1.8 (All-in-One)</title>
     <style>
-        body { font-family: sans-serif; text-align: center; background: #f0f2f5; margin: 0; }
+        body { font-family: sans-serif; text-align: center; background: #f0f2f5; margin: 0; padding-bottom: 100px; }
         #main-container { display: flex; min-height: 100vh; }
-        #game-area { flex: 3; padding: 20px; position: relative; }
+        #game-area { flex: 3; padding: 20px; position: relative; overflow: hidden; }
         #user-sidebar { flex: 1; background: #fff; border-left: 2px solid #ddd; padding: 15px; min-width: 180px; text-align: left; }
         .screen { display: none; padding: 10px; }
         .active { display: block; }
         input { width: 80%; padding: 12px; margin: 5px 0; border-radius: 8px; border: 1px solid #ddd; }
-        .btn-choice { width: 100%; padding: 18px; margin: 8px 0; border: none; border-radius: 12px; background: white; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .btn-choice { width: 100%; padding: 18px; margin: 8px 0; border: none; border-radius: 12px; background: white; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1); font-size: 1.1rem; }
         .btn-choice.selected { background: #4a90e2 !important; color: white; }
+        
+        /* 방장 컨트롤러 */
         #host-controller { position: fixed; bottom: 0; left: 0; width: 75%; background: #222; color: white; padding: 10px; display: none; justify-content: center; gap: 8px; flex-wrap: wrap; z-index: 1000; }
-        .user-entry { margin-bottom: 12px; padding-bottom: 5px; border-bottom: 1px solid #eee; display: flex; align-items: center; justify-content: space-between; }
+        #host-controller button { padding: 8px 12px; border: none; border-radius: 5px; color: white; cursor: pointer; font-size: 0.8rem; }
+        
+        .user-entry { margin-bottom: 12px; padding-bottom: 5px; border-bottom: 1px solid #eee; }
         .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 5px; }
         .online { background: #27ae60; box-shadow: 0 0 5px #27ae60; } .offline { background: #95a5a6; }
         
-        /* 경품 그리드 */
+        /* Scene 2: 애니메이션 효과 */
+        .fade-in-text { opacity: 0; transform: translateY(20px); transition: all 0.8s ease; margin: 15px 0; font-size: 1.2rem; }
+        .fade-in-text.visible { opacity: 1; transform: translateY(0); }
+
+        /* 경품 그리드 및 품절 스타일 */
         .prize-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-top: 20px; }
-        .prize-item { background: white; border-radius: 10px; border: 2px solid #ddd; position: relative; overflow: hidden; display: flex; flex-direction: column; transition: all 0.3s; }
-        .prize-item b.prize-num { padding: 10px 10px 0 10px; display: block; text-align: left; }
+        .prize-item { background: white; border-radius: 10px; border: 2px solid #ddd; position: relative; overflow: hidden; display: flex; flex-direction: column; }
         .prize-item img { width: 100%; object-fit: cover; }
+        .prize-item.sold-out img { filter: grayscale(100%) blur(2px); opacity: 0.6; }
+        .sold-out-info { background: #ffebeb; color: #d63031; padding: 10px; font-size: 0.85rem; text-align: left; border-top: 1px solid #ffcccc; flex-grow: 1; }
+        .btn-edit-winner { position: absolute; top: 5px; right: 5px; font-size: 0.7rem; padding: 3px 6px; background: rgba(0,0,0,0.6); color: white; border: none; border-radius: 4px; cursor: pointer; z-index: 10; }
 
-        /* [수정] 품절 상태 스타일 (Grayscale + Blur) */
-        .prize-item.sold-out img { 
-            filter: grayscale(100%) blur(2px); 
-            opacity: 0.6;
-        }
-
-        /* [추가] 품절 시 하단 유색 띠 레이아웃 */
-        .sold-out-info {
-            background: #ffebeb; /* 연한 빨간색 배경 */
-            color: #d63031; /* 진한 빨간색 글씨 */
-            padding: 10px;
-            font-size: 0.85rem;
-            text-align: left;
-            border-top: 1px solid #ffcccc;
-            flex-grow: 1; /* 남은 공간 채우기 */
-        }
-        .sold-out-info b { color: #2d3436; } /* 라벨 색상은 검은색 계열로 */
-
-        /* [추가] 우측 상단 수정 버튼 스타일 */
-        .btn-edit-winner {
-            position: absolute;
-            top: 5px;
-            right: 5px;
-            font-size: 0.7rem;
-            padding: 3px 6px;
-            background: rgba(0,0,0,0.6);
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            z-index: 10;
-        }
-
-        .admin-input { padding: 10px; margin-top: auto; } /* 미품절 시 입력칸 */
+        /* 엔딩 크레딧 */
+        #credits-box { position: absolute; width: 100%; bottom: -100%; animation: scrollUp 25s linear forwards; }
+        @keyframes scrollUp { from { bottom: -100%; } to { bottom: 130%; } }
+        .credit-text { margin: 50px 0; font-size: 1.6rem; color: #2c3e50; font-weight: bold; }
 
         @media (max-width: 600px) { #main-container { flex-direction: column; } #user-sidebar { width: 100%; border-left: none; border-top: 1px solid #ddd; } #host-controller { width: 100%; } .prize-grid { grid-template-columns: repeat(2, 1fr); } }
     </style>
@@ -66,19 +46,71 @@
 <body>
 <div id="main-container">
     <div id="game-area">
-        <div id="screen-scene1" class="screen active"><h1>🎮 대기중</h1><input type="text" id="nickname-input" placeholder="닉네임"><button onclick="joinGame()">입장</button></div>
-        <div id="screen-quiz" class="screen"><h2 id="question-text"></h2><div id="choices-area"></div></div>
-        <div id="screen-prizes" class="screen"><h2>🎁 행운의 경품 목록</h2><div class="prize-grid" id="prize-list"></div></div>
-        <div id="screen-mid-rank" class="screen"><h2>📊 순위 발표</h2><div id="mid-rank-container"></div></div>
+        <div id="screen-scene1" class="screen active">
+            <h1>🎮 이 송 퀴 - 대기중</h1>
+            <p>닉네임을 입력하고 입장하세요!</p>
+            <input type="text" id="nickname-input" placeholder="닉네임 입력">
+            <button onclick="joinGame()" style="padding:15px 30px; background:#4a90e2; color:white; border:none; border-radius:10px; margin-top:10px;">입장하기</button>
+        </div>
+
+        <div id="screen-scene2" class="screen">
+            <h2 style="color:#2c3e50; border-bottom:2px solid #ddd; padding-bottom:10px;">📜 퀴즈 설명</h2>
+            <div id="desc-container">
+                <p class="fade-in-text">✅ 퀴즈는 총 3가지 종류가 있습니다.</p>
+                <p class="fade-in-text">1️⃣ OX 퀴즈, 2️⃣ 4지 선다형, 3️⃣ 밸런스 퀴즈</p>
+                <p class="fade-in-text">💡 밸런스 퀴즈는 다수가 선택한 쪽이 전원 점수 획득!</p>
+                <p class="fade-in-text">🔥 상황에 따라 점수가 2배가 되는 이벤트가 존재합니다.</p>
+                <p class="fade-in-text">🏆 모든 문제 풀이 후 최종 순위가 공개됩니다.</p>
+            </div>
+        </div>
+
+        <div id="screen-quiz" class="screen">
+            <div id="remaining-badge" style="background:#ff4757; color:white; padding:5px 12px; border-radius:20px; display:inline-block; margin-bottom:10px;">남은 인원: <span id="rem-count">0</span>명</div>
+            <h2 id="question-text"></h2>
+            <div id="choices-area"></div>
+            <button id="submit-btn" onclick="finalSubmit()" style="display:none; background:#27ae60; color:white; padding:15px; width:100%; border-radius:12px; border:none; margin-top:10px;">정답 제출</button>
+        </div>
+
+        <div id="screen-reveal" class="screen">
+            <h2 id="reveal-title" style="color:#27ae60;">결과 공개!</h2>
+            <p id="total-correct-count" style="background:#eee; padding:10px; border-radius:5px;"></p>
+            <div id="random-correct-list" style="margin:20px 0; line-height: 1.6;"></div>
+        </div>
+
+        <div id="screen-mid-rank" class="screen">
+            <h2>📊 순위 발표</h2>
+            <div id="mid-rank-container"></div>
+        </div>
+
+        <div id="screen-prizes" class="screen">
+            <h2>🎁 행운의 경품 목록</h2>
+            <div class="prize-grid" id="prize-list"></div>
+        </div>
+
+        <div id="screen-credits" class="screen">
+            <div id="credits-box">
+                <div class="credit-text">🎬 Special Thanks To</div>
+                <div class="credit-text">오늘 함께해주신 모든 동료분들</div>
+                <div class="credit-text">즐거웠던 4월의 밤</div>
+                <div class="credit-text">--- 롤링 페이퍼 ---</div>
+                <div class="credit-text">"모두 고생 많으셨습니다!"</div>
+                <div class="credit-text">"다음에 또 즐거운 자리에서 만나요"</div>
+                <div class="credit-text">❤️</div>
+                <div class="credit-text">Powered by 이송퀴 ver 1.8</div>
+            </div>
+        </div>
 
         <div id="host-controller">
-            <input type="password" id="host-pw" style="width:40px" placeholder="PW">
-            <button onclick="socket.emit('request_start', {pw:getPW(), mode:'main'})">게임시작</button>
-            <button onclick="socket.emit('request_reveal', getPW())">정답공개</button>
-            <button onclick="socket.emit('request_mid_rank', getPW())">순위(Top3)</button>
+            <input type="password" id="host-pw" style="width:40px; color:black;" placeholder="PW">
+            <button onclick="sendStart('tutorial')" style="background:green">연습 시작</button>
+            <button onclick="sendStart('main')" style="background:blue">본게임 시작</button>
+            <button onclick="socket.emit('request_reveal', getPW())" style="background:#2980b9">정답공개</button>
+            <button onclick="socket.emit('request_mid_rank', getPW())" style="background:#27ae60">순위(Top3)</button>
             <button onclick="socket.emit('request_final_rank', getPW())" style="background:#6c5ce7">최종순위(전원)</button>
-            <button onclick="socket.emit('request_scene', {pw:getPW(), scene:'prizes'})">경품</button>
+            <button onclick="socket.emit('request_scene', {pw:getPW(), scene:'prizes'})" style="background:#e67e22">경품</button>
+            <button onclick="socket.emit('request_scene', {pw:getPW(), scene:'credits'})" style="background:#9b59b6">엔딩</button>
             <button onclick="toggleLocalIDView()" style="background:gray">관리(ID/수정)</button>
+            <button onclick="socket.emit('request_reset', getPW())" style="background:red">전체 초기화</button>
         </div>
     </div>
 
@@ -94,26 +126,22 @@
 <script src="/socket.io/socket.io.js"></script>
 <script>
     const socket = io();
-
     let currentQuestionIndex = -1; 
     let lastPlayersData = [];
     let amIShowingIDs = false; 
 
-    // [수정] 1. 경품 데이터 구조 변경 (이미지 주소 + 선물 주인 고정 데이터)
-    // 인덱스 0이 1번 경품입니다.
+    // 경품 리스트 데이터 [cite: 1498, 1849]
     const prizeList = [
-        { img: "https://i.imgur.com/yXL0cU8.jpg", donor: "이태빈" }, // 1번
-        { img: "https://i.imgur.com/eSmoPX4.jpeg", donor: "양예람" }, // 2번
-        { img: "https://i.imgur.com/ZgfVo57.jpeg", donor: "김유정" }, // 3번
-        // ... (4번부터 20번까지 아래 형식으로 채워 넣어 주세요) ...
+        { img: "https://i.imgur.com/yXL0cU8.jpg", donor: "이태빈" },
+        { img: "https://i.imgur.com/eSmoPX4.jpeg", donor: "양예람" },
+        { img: "https://i.imgur.com/ZgfVo57.jpeg", donor: "김유정" }
     ];
-
-    // 데이터가 부족할 경우 20개까지 더미 데이터로 채웁니다 (테스트용)
     for(let i = prizeList.length; i < 20; i++) {
         prizeList.push({ img: `https://via.placeholder.com/150?text=Prize+${i+1}`, donor: `기부자${i+1}` });
     }
 
     const getPW = () => document.getElementById('host-pw').value;
+    const sendStart = (mode) => socket.emit('request_start', { pw: getPW(), mode: mode }); // [cite: 1730]
 
     window.onload = () => {
         const savedName = localStorage.getItem('quiz_nickname');
@@ -122,7 +150,14 @@
 
     function changeScreen(id) {
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-        document.getElementById('screen-' + id).classList.add('active');
+        const target = document.getElementById('screen-' + id);
+        if (target) target.classList.add('active');
+        
+        // 엔딩 애니메이션 리셋 
+        if(id === 'credits') {
+            const box = document.getElementById('credits-box');
+            box.style.animation = 'none'; box.offsetHeight; box.style.animation = null;
+        }
     }
 
     function toggleHostPanel() {
@@ -130,80 +165,46 @@
         panel.style.display = (panel.style.display === 'flex') ? 'none' : 'flex';
     }
 
-    function toggleLocalIDView() {
-        if (getPW() !== "1224") return alert("비번 틀림"); // server.js 비밀번호와 맞추세요
-        amIShowingIDs = !amIShowingIDs;
-        renderUserList(); 
-        socket.emit('request_prize_sync'); // 관리 모드 켜질 때 경품 정보 갱신
-        alert(amIShowingIDs ? "관리자 수정 모드 활성화" : "수정 모드 비활성화");
-    }
-
-    // [수정] 2. 경품 화면 렌더링 로직 (유색 띠 & 수정 버튼 추가)
-    function renderPrizes(winners = {}) {
-        const prizeGrid = document.getElementById('prize-list');
-        if (!prizeGrid) return;
-        prizeGrid.innerHTML = ""; 
-
-        for (let i = 1; i <= 20; i++) {
-            const winnerName = winners[i]; // 서버에서 받은 당첨자 이름
-            const isSoldOut = !!winnerName;
-            // 배열 인덱스는 i-1
-            const prizeData = prizeList[i - 1]; 
-
-            prizeGrid.innerHTML += `
-                <div class="prize-item ${isSoldOut ? 'sold-out' : ''}" id="prize-card-${i}">
-                    <b class="prize-num">${i}번</b>
-                    
-                    ${ (amIShowingIDs && isSoldOut) ? `<button class="btn-edit-winner" onclick="openEditPopup(${i}, '${winnerName}')">수정</button>` : '' }
-
-                    <img src="${prizeData.img}">
-
-                    ${isSoldOut ? 
-                        `<div class="sold-out-info">
-                             <b>🎁 선물주인 :</b> ${prizeData.donor}<br>
-                             <b>🏆 당첨자 :</b> ${winnerName}
-                         </div>`
-                        : 
-                        `<div class="admin-input" style="display: ${amIShowingIDs ? 'block' : 'none'}">
-                             <input type="text" id="input-prize-${i}" placeholder="이름" style="width:60px; font-size:0.7rem; padding:5px;">
-                             <button onclick="saveWinner(${i})" style="font-size:0.7rem; padding:5px 8px;">저장</button>
-                         </div>`
-                    }
-                </div>`;
-        }
-    }
-
-    // [기존] 당첨자 최초 저장
-    function saveWinner(id) {
-        const name = document.getElementById(`input-prize-${id}`).value;
-        if (!name) return alert("이름 입력!");
-        socket.emit('claim_prize', { pw: getPW(), prizeId: id, winnerName: name });
-    }
-
-    // [추가] 5. 당첨자 수정 팝업 (Prompt 활용)
-    function openEditPopup(id, currentWinner) {
-        // 브라우저 기본 팝업(Prompt)을 사용하여 간단하게 구현
-        const newWinner = prompt(`${id}번 경품 당첨자 이름을 수정합니다.\n현재 당첨자: ${currentWinner}`, currentWinner);
-        
-        if (newWinner === null) return; // 취소 버튼 클릭 시 종료
-        if (newWinner.trim() === "") return alert("이름을 입력해주세요.");
-        if (newWinner === currentWinner) return; // 이름이 같으면 종료
-
-        // 서버의 claim_prize 로직은 덮어쓰기가 되므로 그대로 사용합니다.
-        socket.emit('claim_prize', { pw: getPW(), prizeId: id, winnerName: newWinner.trim() });
-    }
-
-    socket.on('prize_updated', (winners) => { renderPrizes(winners); });
+    // 씬 전환 수신 핸들러 [cite: 656, 1728]
     socket.on('change_scene', (scene) => {
         changeScreen(scene);
-        if (scene === 'prizes') socket.emit('request_prize_sync'); 
+        if (scene === "scene2") {
+            const lines = document.querySelectorAll('#desc-container .fade-in-text');
+            lines.forEach((line, index) => {
+                setTimeout(() => line.classList.add('visible'), index * 1000);
+            });
+        }
+        if (scene === 'prizes') socket.emit('request_prize_sync');
     });
-    
+
+    // 정답 공개 수신 핸들러 (밸런스 게임 상세 명단 포함) 
+    socket.on('reveal_answer', (data) => {
+        changeScreen('reveal');
+        const listDiv = document.getElementById('random-correct-list');
+        const countP = document.getElementById('total-correct-count');
+
+        if (data.type === "balance") {
+            countP.innerHTML = `<div style="font-weight:bold;">${data.questionText}</div>`;
+            const summary = data.options.map((opt, i) => `${i+1}번 ${opt} : ${data.counts[i]}명`).join(', ');
+            countP.innerHTML += `<div style="margin-top:5px; color:#666;">${summary}</div>`;
+            listDiv.innerHTML = data.winners.map(winIdx => {
+                const names = data.votersByOption[winIdx].join(', ') || '없음';
+                return `<div style="margin-top:15px; border:2px solid #27ae60; padding:10px; border-radius:10px;">
+                            <b style="color:#27ae60;">🏆 ${winIdx+1}번(${data.options[winIdx]}) 정답자 명단</b><br>${names}
+                        </div>`;
+            }).join('');
+        } else {
+            countP.innerText = "총 정답 인원: " + data.totalCorrect + "명";
+            listDiv.innerText = data.allCorrectNames.join(', ') || '정답자가 없습니다.';
+        }
+    });
+
+    // 순위 발표 수신 핸들러 [cite: 1863, 1864, 1865]
     socket.on('show_mid_rank', (formattedRank) => {
         changeScreen('mid-rank');
         const container = document.getElementById('mid-rank-container');
         container.innerHTML = formattedRank.map(r => `
-            <div style="padding:12px; margin:8px; background:white; border-radius:10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border-left: 5px solid ${r.rank <= 3 ? '#4a90e2' : '#ddd'};">
+            <div style="padding:12px; margin:8px; background:white; border-radius:10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border-left: 5px solid ${r.rank <= 3 ? '#4a90e2' : '#ddd'}; text-align:left;">
                 <b style="font-size:1.1rem;">${r.rank}등</b> 
                 <span style="margin-left:10px; font-weight:bold;">${r.type === 'full' ? r.name : '***'}</span> 
                 <span style="float:right; color:#666;">${r.score}점</span>
@@ -211,14 +212,92 @@
         `).join('');
     });
 
+    // 경품 렌더링 [cite: 1815, 1850]
+    function renderPrizes(winners = {}) {
+        const prizeGrid = document.getElementById('prize-list');
+        if (!prizeGrid) return;
+        prizeGrid.innerHTML = ""; 
+        for (let i = 1; i <= 20; i++) {
+            const winnerName = winners[i];
+            const isSoldOut = !!winnerName;
+            const prizeData = prizeList[i - 1]; 
+            prizeGrid.innerHTML += `
+                <div class="prize-item ${isSoldOut ? 'sold-out' : ''}">
+                    <b style="padding:5px; text-align:left; display:block;">${i}번</b>
+                    ${ (amIShowingIDs && isSoldOut) ? `<button class="btn-edit-winner" onclick="openEditPopup(${i}, '${winnerName}')">수정</button>` : '' }
+                    <img src="${prizeData.img}">
+                    ${isSoldOut ? 
+                        `<div class="sold-out-info"><b>🎁 선물주인 :</b> ${prizeData.donor}<br><b>🏆 당첨자 :</b> ${winnerName}</div>` : 
+                        `<div style="padding:10px; display:${amIShowingIDs ? 'block' : 'none'}">
+                             <input type="text" id="input-prize-${i}" placeholder="이름" style="width:60px; font-size:0.7rem;">
+                             <button onclick="saveWinner(${i})" style="font-size:0.7rem;">저장</button>
+                         </div>`
+                    }
+                </div>`;
+        }
+    }
+
+    function saveWinner(id) {
+        const name = document.getElementById(`input-prize-${id}`).value;
+        if (!name) return alert("이름 입력!");
+        socket.emit('claim_prize', { pw: getPW(), prizeId: id, winnerName: name });
+    }
+
+    function openEditPopup(id, currentWinner) {
+        const newWinner = prompt(`${id}번 경품 당첨자 수정\n현재: ${currentWinner}`, currentWinner);
+        if (newWinner && newWinner.trim() !== "" && newWinner !== currentWinner) {
+            socket.emit('claim_prize', { pw: getPW(), prizeId: id, winnerName: newWinner.trim() });
+        }
+    }
+
+    function toggleLocalIDView() {
+        if (getPW() !== "1224") return alert("비번 틀림"); //
+        amIShowingIDs = !amIShowingIDs;
+        renderUserList(); 
+        socket.emit('request_prize_sync');
+        alert(amIShowingIDs ? "관리자 모드 활성화" : "관리자 모드 비활성화");
+    }
+
+    socket.on('prize_updated', (winners) => { renderPrizes(winners); });
+
+    socket.on('next_question', (data) => {
+        changeScreen('quiz');
+        document.getElementById('question-text').innerText = data.q;
+        document.getElementById('rem-count').innerText = data.total;
+        const area = document.getElementById('choices-area');
+        area.innerHTML = ''; area.style.display = 'block';
+        data.a.forEach((choice, i) => {
+            const btn = document.createElement('button');
+            btn.className = 'btn-choice'; btn.innerText = choice;
+            btn.onclick = () => {
+                if(data.type === 'multi' || data.type === 'balance') {
+                    if(btn.classList.contains('selected')) btn.classList.remove('selected');
+                    else btn.classList.add('selected');
+                } else { socket.emit('submit_answer', [i]); area.style.display = 'none'; }
+            };
+            area.appendChild(btn);
+        });
+        document.getElementById('submit-btn').style.display = (data.type === 'multi' || data.type === 'balance') ? 'block' : 'none';
+    });
+
+    function finalSubmit() {
+        const selected = Array.from(document.querySelectorAll('.btn-choice.selected')).map(b => Array.from(b.parentNode.children).indexOf(b));
+        if (selected.length === 0) return alert("선택하세요!");
+        socket.emit('submit_answer', selected);
+        document.getElementById('choices-area').style.display = 'none';
+        document.getElementById('submit-btn').style.display = 'none';
+    }
+
     function renderUserList() {
         const listDiv = document.getElementById('sidebar-user-list');
         listDiv.innerHTML = lastPlayersData.map(u => {
             const idText = amIShowingIDs ? `<br><small style="color:#4a90e2">id:${u.userID}</small>` : '';
-            return `<div class="user-entry"><div><span class="status-dot ${u.online?'online':'offline'}"></span>${u.nickname}${idText}</div></div>`;
+            const status = u.online ? 'online' : 'offline';
+            return `<div class="user-entry"><div><span class="status-dot ${status}"></span>${u.nickname}${idText}</div></div>`;
         }).join('');
     }
     socket.on('update_user_list', (data) => { lastPlayersData = data.players; renderUserList(); });
+    socket.on('update_remaining', (rem) => { document.getElementById('rem-count').innerText = rem; });
     function joinGame() { const nick = document.getElementById('nickname-input').value; if(!nick) return alert("닉네임!"); localStorage.setItem('quiz_nickname', nick); socket.emit('join_waiting_room', { userID: nick, nickname: nick }); }
 </script>
 </body>
