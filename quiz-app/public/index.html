@@ -3,142 +3,153 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>이 송 퀴 Premium ver 2.1</title>
+    <title>이 송 퀴 Premium v1.0</title>
     <style>
         :root {
-            --bg-color: #121212;
-            --surface-color: #1e1e1e;
-            --primary-color: #0a84ff;
+            --bg-color: #0f0f0f;
+            --surface-color: #1a1a1a;
+            --card-color: #242424;
+            --primary-color: #007aff;
             --accent-color: #ffd60a;
-            --text-color: #ffffff;
-            --text-dim: #b0b0b0;
-            --danger-color: #ff453a;
+            --text-main: #ffffff;
+            --text-dim: #a0a0a0;
+            --danger: #ff3b30;
+            --success: #34c759;
         }
 
-        body { font-family: -apple-system, sans-serif; background: var(--bg-color); color: var(--text-color); margin: 0; padding-bottom: 70px; overflow-x: hidden; }
+        body { font-family: -apple-system, sans-serif; background: var(--bg-color); color: var(--text-main); margin: 0; padding-bottom: 80px; overflow-x: hidden; }
         
-        /* 레이아웃 구성 */
+        /* 레이아웃: PC 환경 */
         #main-container { display: flex; min-height: 100vh; flex-direction: row; }
         #game-area { flex: 3; padding: 20px; position: relative; }
-        #user-sidebar { flex: 1; background: var(--surface-color); border-left: 1px solid #333; padding: 15px; min-width: 220px; text-align: left; }
+        #user-sidebar { flex: 1; background: var(--surface-color); border-left: 1px solid #333; padding: 20px; min-width: 250px; text-align: left; }
 
-        /* 모바일 대응: 참여자 목록을 아래로 내림 */
+        /* 모바일 대응: 참여자 목록 하단으로 */
         @media (max-width: 800px) {
             #main-container { flex-direction: column; }
-            #user-sidebar { border-left: none; border-top: 1px solid #333; min-width: 100%; padding-bottom: 80px; }
-            #host-controller { width: 94% !important; left: 3% !important; }
+            #user-sidebar { border-left: none; border-top: 1px solid #333; padding-bottom: 100px; }
+            #host-controller { width: 92% !important; left: 4% !important; }
+            .prize-grid { grid-template-columns: repeat(2, 1fr) !important; }
         }
 
-        .screen { display: none; }
+        .screen { display: none; animation: fadeIn 0.3s ease; }
         .active { display: block; }
-        
-        /* 하단 내비게이션 */
-        #bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; height: 65px; background: #1c1c1e; display: flex; border-top: 1px solid #333; z-index: 2000; }
-        .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-dim); cursor: pointer; font-size: 0.75rem; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* 하단 탭 바 */
+        #bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; height: 70px; background: rgba(20, 20, 22, 0.95); backdrop-filter: blur(10px); display: flex; border-top: 1px solid #333; z-index: 2000; }
+        .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-dim); cursor: pointer; font-size: 0.75rem; transition: 0.2s; }
         .nav-item.active { color: var(--primary-color); font-weight: bold; }
 
-        /* 버튼 스타일 */
-        button { border-radius: 12px; border: none; font-weight: bold; cursor: pointer; transition: transform 0.1s; }
-        .btn-choice { width: 100%; padding: 18px; margin: 8px 0; background: #2c2c2e; color: white; font-size: 1.1rem; border: 1px solid #444; }
-        .btn-choice.selected { background: var(--primary-color) !important; border-color: var(--primary-color); box-shadow: 0 0 15px rgba(10, 132, 255, 0.4); }
+        /* 퀴즈 선택지 버튼 */
+        button { border-radius: 12px; border: none; font-weight: bold; cursor: pointer; transition: 0.1s; }
+        .btn-choice { width: 100%; padding: 20px; margin: 10px 0; background: var(--card-color); color: white; font-size: 1.1rem; border: 1px solid #333; text-align: center; }
+        .btn-choice.selected { background: var(--primary-color) !important; border-color: var(--primary-color); box-shadow: 0 0 15px rgba(0, 122, 255, 0.4); }
 
-        /* 2배 이벤트 배너 */
+        /* 2배 이벤트 복구 */
         #event-banner { 
-            display: none; background: var(--accent-color); color: #000; padding: 12px; 
-            font-weight: bold; border-radius: 12px; margin-bottom: 15px; text-align: center;
-            animation: blink 0.8s infinite; box-shadow: 0 0 20px rgba(255, 214, 10, 0.3);
+            display: none; background: var(--accent-color); color: #000; padding: 15px; 
+            font-weight: bold; border-radius: 12px; margin-bottom: 20px; text-align: center;
+            animation: blink 0.8s infinite; box-shadow: 0 0 25px rgba(255, 214, 10, 0.4);
         }
-        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
 
         /* 방장 컨트롤러 */
-        #host-controller { position: fixed; bottom: 75px; left: 5%; width: 90%; background: rgba(30, 30, 30, 0.96); backdrop-filter: blur(10px); color: white; padding: 12px; display: none; justify-content: center; gap: 6px; flex-wrap: wrap; z-index: 3000; border-radius: 20px; border: 1px solid #444; }
-        #host-controller button { padding: 6px 12px; font-size: 0.75rem; background: #3a3a3c; color: white; }
+        #host-controller { position: fixed; bottom: 85px; left: 5%; width: 90%; background: rgba(30, 30, 30, 0.98); color: white; padding: 15px; display: none; justify-content: center; gap: 8px; flex-wrap: wrap; z-index: 3000; border-radius: 20px; border: 1px solid #444; box-shadow: 0 -10px 30px rgba(0,0,0,0.5); }
+        #host-controller button { padding: 8px 14px; font-size: 0.75rem; background: #3a3a3c; color: white; }
 
-        /* 경품 그리드 */
-        .prize-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 15px; }
-        .prize-item { background: var(--surface-color); border-radius: 15px; overflow: hidden; border: 1px solid #333; position: relative; }
-        .prize-item img { width: 100%; display: block; transition: 0.3s; }
-        .sold-out-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; color: var(--danger-color); font-weight: bold; font-size: 1.2rem; transform: rotate(-15deg); pointer-events: none; }
-        .sold-out-info { background: #2c0d0f; color: #ff453a; padding: 10px; font-size: 0.8rem; text-align: left; border-top: 1px solid #441111; }
+        /* 경품 카드 디자인 (수정됨) */
+        .prize-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-top: 20px; }
+        .prize-item { background: var(--card-color); border-radius: 16px; overflow: hidden; border: 1px solid #333; position: relative; display: flex; flex-direction: column; }
+        .prize-img-container { width: 100%; aspect-ratio: 1/1; background: #222; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; }
+        .prize-item img { width: 100%; height: 100%; object-fit: cover; }
+        .prize-num-tag { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.6); padding: 2px 8px; border-radius: 6px; font-size: 0.8rem; z-index: 5; }
         
-        /* 참여자 목록 스타일 */
-        .user-entry { margin-bottom: 10px; padding: 8px; background: #2c2c2e; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; }
+        /* 품절 시 하단 유색 띠 레이아웃 */
+        .sold-out-footer { background: #3d1416; color: #ff453a; padding: 12px; font-size: 0.85rem; text-align: left; border-top: 1px solid #631d20; }
+        .sold-out-footer b { color: var(--text-dim); }
+        .prize-item.sold-out img { filter: grayscale(1) brightness(0.4) blur(1px); }
+        .btn-edit { position: absolute; top: 10px; right: 10px; background: var(--primary-color); color: white; padding: 4px 8px; font-size: 0.7rem; border-radius: 4px; z-index: 10; }
 
         /* 엔딩 크레딧 */
-        #credits-box { position: absolute; width: 100%; bottom: -100%; animation: scrollUp 25s linear forwards; }
+        #credits-box { position: absolute; width: 100%; bottom: -100%; animation: scrollUp 28s linear forwards; }
         @keyframes scrollUp { from { bottom: -100%; } to { bottom: 150%; } }
-        .credit-text { margin: 60px 0; font-size: 1.8rem; color: #fff; text-shadow: 0 0 10px rgba(255,255,255,0.5); font-weight: bold; }
+        .credit-text { margin: 60px 0; font-size: 2rem; color: #fff; text-shadow: 0 0 15px rgba(255,255,255,0.4); font-weight: bold; }
         
-        input { padding: 12px; border-radius: 8px; border: 1px solid #333; background: #2c2c2e; color: white; width: 80%; }
+        input { padding: 12px; border-radius: 8px; border: 1px solid #333; background: #2c2c2e; color: white; margin: 5px 0; }
     </style>
 </head>
 <body>
 
 <div id="main-container">
     <div id="game-area">
-        <div id="event-banner">🔥 지금 정답을 맞히면 점수가 2배! 🔥</div>
+        <div id="event-banner">🔥 정답자 점수 2배 획득 기회! 🔥</div>
 
         <div id="tab-home" class="tab-content active">
             <div id="screen-scene1" class="screen active">
-                <h1 style="font-size: 2.5rem; margin-top: 30px;">이 송 퀴</h1>
-                <input type="text" id="nickname-input" placeholder="닉네임 입력">
-                <button onclick="joinGame()" style="padding:15px 40px; background: var(--primary-color); color:white; margin-top:15px; width:80%;">참여하기</button>
+                <h1 style="font-size: 3rem; margin-top: 40px; background: linear-gradient(to bottom, #fff, #888); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">이 송 퀴</h1>
+                <p style="color: var(--text-dim);">대기실에 입장하여 준비해주세요.</p>
+                <input type="text" id="nickname-input" placeholder="닉네임 입력" style="width: 70%; max-width: 300px;">
+                <br>
+                <button onclick="joinGame()" style="padding:18px 60px; background: var(--primary-color); color:white; margin-top:20px; font-size:1.2rem; width: 70%; max-width: 300px;">입장하기</button>
             </div>
 
             <div id="screen-scene2" class="screen">
-                <h2 style="color: var(--primary-color);">📜 퀴즈 안내</h2>
-                <div id="desc-container"></div>
+                <h2 style="color: var(--primary-color); font-size: 2rem;">📜 퀴즈 안내</h2>
+                <div id="desc-container" style="margin-top: 30px; font-size: 1.3rem; line-height: 2;"></div>
             </div>
 
             <div id="screen-quiz" class="screen">
-                <h2 id="question-text"></h2>
+                <div id="rem-badge" style="color:var(--accent-color); font-weight:bold; margin-bottom:10px;">남은 인원: <span id="rem-count">0</span>명</div>
+                <h2 id="question-text" style="font-size: 1.6rem; margin-bottom: 20px;"></h2>
                 <div id="choices-area"></div>
-                <button id="submit-btn" onclick="finalSubmit()" style="display:none; background:#32d74b; color:black; padding:18px; width:100%; margin-top:10px;">정답 제출</button>
+                <button id="submit-btn" onclick="finalSubmit()" style="display:none; background:var(--success); color:black; padding:20px; width:100%; margin-top:15px; font-size: 1.2rem;">정답 제출</button>
             </div>
 
             <div id="screen-reveal" class="screen">
-                <h2 style="color: #32d74b;">결과 공개</h2>
-                <div id="random-correct-list"></div>
+                <h2 style="color: var(--success);">결과 공개</h2>
+                <div id="random-correct-list" style="padding: 20px; background: var(--surface-color); border-radius: 20px; border: 1px solid #333;"></div>
             </div>
 
-            <div id="screen-mid-rank" class="screen"><h2>📊 순위</h2><div id="mid-rank-container"></div></div>
+            <div id="screen-mid-rank" class="screen"><h2>📊 실시간 순위</h2><div id="mid-rank-container"></div></div>
             
             <div id="screen-credits" class="screen">
                 <div id="credits-box">
-                    <div class="credit-text">🎬 Special Thanks</div>
-                    <div class="credit-text">오늘 함께해주신 모든 동료분들</div>
-                    <div class="credit-text">즐거웠던 4월의 밤</div>
+                    <div class="credit-text">🎬 Special Thanks To</div>
+                    <div class="credit-text">함께해주신 동료 여러분</div>
                     <div class="credit-text">--- 롤링 페이퍼 ---</div>
-                    <div class="credit-text">"모두 고생 많으셨습니다!"</div>
-                    <div class="credit-text">Powered by LeeSongQuiz</div>
+                    <div class="credit-text">"오늘 하루 정말 즐거웠습니다!"</div>
+                    <div class="credit-text">"모두 고생 많으셨습니다."</div>
+                    <div class="credit-text">🎁</div>
+                    <div class="credit-text">Powered by LeeSongQuiz Pro</div>
                 </div>
             </div>
         </div>
 
-        <div id="tab-prizes" class="tab-content" style="display:none;">
-            <h2 style="color: var(--accent-color);">🎁 경품 목록</h2>
+        <div id="tab-prizes" class="tab-content" style="display:none; padding-bottom: 40px;">
+            <h2 style="color: var(--accent-color); font-size: 2rem;">🎁 경품 목록</h2>
             <div class="prize-grid" id="prize-list"></div>
         </div>
 
         <div id="host-controller">
-            <input type="password" id="host-pw" style="width:40px; background:#444; border:none; color:white; padding:5px;" placeholder="PW">
-            <button onclick="sendStart('tutorial')" style="background:#32d74b; color:black;">연습</button>
-            <button onclick="sendStart('main')" style="background:var(--primary-color); color:white;">본게임</button>
-            <button onclick="socket.emit('request_reveal', getPW())">정답</button>
+            <input type="password" id="host-pw" style="width:50px; background:#444; border:none; color:white;" placeholder="PW">
+            <button onclick="sendStart('tutorial')" style="background:var(--success); color:black;">연습</button>
+            <button onclick="sendStart('main')" style="background:var(--primary-color);">본게임</button>
+            <button onclick="socket.emit('request_reveal', getPW())">정답공개</button>
             <button onclick="socket.emit('request_mid_rank', getPW())">Top3</button>
             <button onclick="socket.emit('request_final_rank', getPW())">전원순위</button>
             <button onclick="socket.emit('toggle_multiplier', getPW())" style="background:var(--accent-color); color:black;">2배</button>
             <button onclick="socket.emit('request_scene', {pw:getPW(), scene:'credits'})">엔딩</button>
-            <button onclick="socket.emit('request_reset', getPW())" style="background:var(--danger-color)">리셋</button>
+            <button onclick="socket.emit('request_reset', getPW())" style="background:var(--danger)">리셋</button>
         </div>
     </div>
 
     <div id="user-sidebar">
         <h3 style="display:flex; justify-content:space-between; align-items:center;">
             👥 참여자
-            <div style="display:flex; gap:5px;">
-                <small onclick="toggleAdminMode()" id="admin-toggle-btn" style="color:var(--text-dim); cursor:pointer; font-size:0.7rem; border:1px solid #555; padding:2px 5px; border-radius:4px;">관리모드</small>
-                <small onclick="toggleHostPanel()" style="color:var(--primary-color); cursor:pointer; font-size:0.7rem; background:#2c2c2e; padding:2px 5px; border-radius:4px;">메뉴</small>
+            <div style="display:flex; gap:8px;">
+                <small onclick="toggleAdminMode()" id="admin-toggle-btn" style="color:var(--text-dim); cursor:pointer; font-size:0.75rem; border:1px solid #444; padding:3px 8px; border-radius:6px; background: #222;">관리모드</small>
+                <small onclick="toggleHostPanel()" style="color:var(--primary-color); cursor:pointer; font-size:0.75rem; background:#222; border:1px solid #444; padding:3px 8px; border-radius:6px;">메뉴</small>
             </div>
         </h3>
         <div id="sidebar-user-list"></div>
@@ -154,35 +165,32 @@
 <script>
     const socket = io();
     let amIShowingIDs = false;
-    let currentQuestionIndex = -1;
     let lastPlayersData = [];
+    
+    // [중요] 외부 서버 터짐 방지: placeholder 주소 수정
+    const SAFE_PLACEHOLDER = "https://placehold.co/300x300/222/888?text=Image";
 
-    // [중요] 경품 리스트 (데이터를 전역으로 뺌)
     const prizeList = [
         { img: "https://i.imgur.com/yXL0cU8.jpg", donor: "이태빈" },
         { img: "https://i.imgur.com/eSmoPX4.jpeg", donor: "양예람" },
         { img: "https://i.imgur.com/ZgfVo57.jpeg", donor: "김유정" }
     ];
+    // 20개 채우기
     for(let i=prizeList.length; i<20; i++) {
-        prizeList.push({ img: "https://via.placeholder.com/150?text=Prize", donor: "준비중" });
+        prizeList.push({ img: SAFE_PLACEHOLDER, donor: "준비중" });
     }
 
     const getPW = () => document.getElementById('host-pw').value;
 
-    // 1. 참여하기 함수 (복구 완료)
     function joinGame() {
         const nick = document.getElementById('nickname-input').value;
-        if(!nick) return alert("닉네임을 입력해주세요!");
-        
-        let userID = localStorage.getItem('quiz_id') || 'u_' + Math.random().toString(36).substr(2, 9);
+        if(!nick) return alert("닉네임을 입력하세요!");
+        const userID = localStorage.getItem('quiz_id') || 'u_' + Math.random().toString(36).substr(2, 9);
         localStorage.setItem('quiz_id', userID);
-        localStorage.setItem('quiz_nickname', nick);
-        
         socket.emit('join_waiting_room', { userID, nickname: nick });
-        alert("입장 완료! 화면을 지켜봐주세요.");
+        alert("접속 완료!");
     }
 
-    // 2. 탭 전환
     function switchTab(tabId) {
         document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
         document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -190,13 +198,10 @@
         document.getElementById('nav-' + tabId).classList.add('active');
     }
 
-    // 3. 방장 기능
-    function sendStart(mode) {
-        socket.emit('request_start', { pw: getPW(), mode: mode });
-    }
+    function sendStart(mode) { socket.emit('request_start', { pw: getPW(), mode }); }
 
     function toggleAdminMode() {
-        if (getPW() !== "1224") return alert("하단 메뉴에 비밀번호를 먼저 입력하세요!");
+        if (getPW() !== "1224") return alert("PW를 입력하세요!");
         amIShowingIDs = !amIShowingIDs;
         document.getElementById('admin-toggle-btn').style.color = amIShowingIDs ? "var(--primary-color)" : "var(--text-dim)";
         renderUserList();
@@ -204,48 +209,46 @@
     }
 
     function toggleHostPanel() {
-        const panel = document.getElementById('host-controller');
-        panel.style.display = (panel.style.display === 'flex') ? 'none' : 'flex';
+        const p = document.getElementById('host-controller');
+        p.style.display = (p.style.display === 'flex') ? 'none' : 'flex';
     }
 
     function saveWinner(id) {
         const name = document.getElementById(`win-input-${id}`).value;
-        if(!name) return alert("당첨자 이름을 쓰세요!");
+        if(!name) return alert("이름을 입력하세요!");
         socket.emit('claim_prize', { pw: getPW(), prizeId: id, winnerName: name });
     }
 
-    // 4. 소켓 통신 수신
+    function editWinner(id, current) {
+        const name = prompt("수정할 당첨자 이름:", current);
+        if(name) socket.emit('claim_prize', { pw: getPW(), prizeId: id, winnerName: name });
+    }
+
     socket.on('change_scene', (scene) => {
         if(scene === 'prizes') { switchTab('prizes'); return; }
         switchTab('home');
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
         const target = document.getElementById('screen-' + scene);
         if(target) target.classList.add('active');
-        
         if(scene === 'scene2') {
             const container = document.getElementById('desc-container');
-            container.innerHTML = `
-                <p class="fade-in-text">✅ 총 3가지 타입의 퀴즈가 진행됩니다.</p>
-                <p class="fade-in-text">🔥 중간중간 점수 2배 이벤트가 진행됩니다.</p>
-                <p class="fade-in-text">🏆 마지막 승자는 누가 될까요?</p>`;
+            container.innerHTML = `<p class="fade-in-text">✅ 3가지 타입의 퀴즈가 시작됩니다.</p><p class="fade-in-text">🔥 중간중간 점수 2배 이벤트 진행!</p><p class="fade-in-text">🏆 과연 오늘의 최종 우승자는?</p>`;
             setTimeout(() => { document.querySelectorAll('.fade-in-text').forEach((el, i) => setTimeout(() => el.classList.add('visible'), i*800)); }, 100);
         }
+        if(scene === 'credits') { const box = document.getElementById('credits-box'); box.style.animation = 'none'; box.offsetHeight; box.style.animation = null; }
     });
 
-    socket.on('multiplier_update', (m) => {
-        document.getElementById('event-banner').style.display = (m === 2) ? 'block' : 'none';
-    });
+    socket.on('multiplier_update', (m) => { document.getElementById('event-banner').style.display = (m === 2) ? 'block' : 'none'; });
 
-    socket.on('update_user_list', (data) => {
-        lastPlayersData = data.players;
-        renderUserList();
-    });
+    socket.on('update_user_list', (data) => { lastPlayersData = data.players; renderUserList(); });
 
     function renderUserList() {
         const listDiv = document.getElementById('sidebar-user-list');
         listDiv.innerHTML = lastPlayersData.map(u => {
             const idText = amIShowingIDs ? `<br><small style="color:var(--primary-color)">id:${u.userID}</small>` : '';
-            return `<div class="user-entry"><div><span class="status-dot ${u.online?'online':'offline'}"></span>${u.nickname}${idText}</div></div>`;
+            return `<div style="background:var(--card-color); padding:10px; border-radius:8px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+                <div><span style="width:10px; height:10px; background:${u.online?'var(--success)':'#555'}; border-radius:50%; display:inline-block; margin-right:8px;"></span>${u.nickname}${idText}</div>
+            </div>`;
         }).join('');
     }
 
@@ -261,12 +264,8 @@
             const btn = document.createElement('button');
             btn.className = 'btn-choice'; btn.innerText = choice;
             btn.onclick = () => {
-                if(data.type === 'multi' || data.type === 'balance') {
-                    btn.classList.toggle('selected');
-                } else {
-                    socket.emit('submit_answer', [i]);
-                    area.style.display = 'none';
-                }
+                if(data.type === 'multi' || data.type === 'balance') { btn.classList.toggle('selected'); }
+                else { socket.emit('submit_answer', [i]); area.style.display = 'none'; }
             };
             area.appendChild(btn);
         });
@@ -275,7 +274,7 @@
 
     function finalSubmit() {
         const selected = Array.from(document.querySelectorAll('.btn-choice.selected')).map(b => Array.from(b.parentNode.children).indexOf(b));
-        if (selected.length === 0) return alert("하나 이상 선택하세요!");
+        if (selected.length === 0) return alert("선택하세요!");
         socket.emit('submit_answer', selected);
         document.getElementById('choices-area').style.display = 'none';
         document.getElementById('submit-btn').style.display = 'none';
@@ -287,13 +286,16 @@
             const id = i + 1;
             const winner = winners[id];
             return `
-                <div class="prize-item">
-                    <img src="${p.img}" style="${winner ? 'filter:grayscale(1) brightness(0.5)' : ''}">
-                    ${winner ? `<div class="sold-out-overlay">품절</div><div class="sold-out-info">🎁 주인: ${p.donor}<br>🏆 당첨: ${winner}</div>` : 
-                    `<div style="padding:10px; display:${amIShowingIDs ? 'block' : 'none'}">
-                        <input type="text" id="win-input-${id}" style="width:70%; font-size:0.7rem; padding:5px;">
-                        <button onclick="saveWinner(${id})" style="font-size:0.7rem; padding:5px;">OK</button>
-                    </div>`}
+                <div class="prize-item ${winner ? 'sold-out' : ''}">
+                    <div class="prize-num-tag">${id}번</div>
+                    ${ (amIShowingIDs && winner) ? `<button class="btn-edit" onclick="editWinner(${id}, '${winner}')">수정</button>` : '' }
+                    <div class="prize-img-container"><img src="${p.img}"></div>
+                    ${winner ? 
+                        `<div class="sold-out-footer"><b>🎁 선물주인 :</b> ${p.donor}<br><b>🏆 당첨자 :</b> ${winner}</div>` : 
+                        `<div style="padding:10px; display:${amIShowingIDs ? 'block' : 'none'}">
+                            <input type="text" id="win-input-${id}" placeholder="당첨자" style="width:65px; font-size:0.7rem; padding:4px;">
+                            <button onclick="saveWinner(${id})" style="font-size:0.7rem; padding:4px;">저장</button>
+                        </div>`}
                 </div>`;
         }).join('');
     });
@@ -303,9 +305,9 @@
         document.getElementById('screen-reveal').classList.add('active');
         const listDiv = document.getElementById('random-correct-list');
         if (data.type === "balance") {
-            listDiv.innerHTML = data.winners.map(idx => `<div style="color:var(--primary-color); margin:10px 0;">🏆 ${data.options[idx]} 선택자 전원 정답!</div>`).join('');
+            listDiv.innerHTML = data.winners.map(idx => `<div style="color:var(--primary-color); margin:10px 0; font-weight:bold;">🏆 ${data.options[idx]} 선택자 전원 정답!</div>`).join('');
         } else {
-            listDiv.innerText = "정답자: " + (data.allCorrectNames.join(', ') || "없음");
+            listDiv.innerHTML = `<div style="line-height:1.6; word-break:keep-all;">${data.allCorrectNames.join(', ') || "정답자가 없습니다."}</div>`;
         }
     });
 
@@ -313,8 +315,8 @@
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
         document.getElementById('screen-mid-rank').classList.add('active');
         document.getElementById('mid-rank-container').innerHTML = formattedRank.map(r => 
-            `<div style="padding:10px; margin:5px; background:var(--surface-color); border-radius:10px; display:flex; justify-content:space-between;">
-                <span>${r.rank}등 ${r.type==='full'?r.name:'***'}</span><span>${r.score}점</span>
+            `<div style="padding:15px; margin:8px 0; background:var(--card-color); border-radius:12px; display:flex; justify-content:space-between; border-left: 4px solid ${r.rank<=3?'var(--primary-color)':'#333'}">
+                <span><b>${r.rank}등</b> ${r.type==='full'?r.name:'***'}</span><span>${r.score}점</span>
             </div>`).join('');
     });
 </script>
