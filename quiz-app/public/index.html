@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>이 송 퀴 ver 1.4</title>
+    <title>이 송 퀴 ver 1.42</title>
     <style>
         body { font-family: sans-serif; text-align: center; background: #f0f2f5; margin: 0; }
         #main-container { display: flex; min-height: 100vh; }
@@ -21,7 +21,25 @@
         .submit-icon { font-size: 1.1rem; }
         .fade-in-text { opacity: 0; transform: translateY(20px); transition: all 0.8s ease; margin: 15px 0; }
         .fade-in-text.visible { opacity: 1; transform: translateY(0); }
-        /* 중간 점검 리스트 스타일 */
+
+        /* [복구] 2배 이벤트 배너 및 반짝임 스타일 */
+        #event-banner { 
+            display: none; 
+            background: #f1c40f; 
+            color: #000; 
+            padding: 12px; 
+            font-weight: bold; 
+            border-radius: 10px; 
+            margin-bottom: 15px; 
+            animation: blink 0.8s infinite; /* 0.8초 간격 무한 반복 */
+            border: 2px solid #d35400;
+        }
+        @keyframes blink { 
+            0% { opacity: 1; }
+            50% { opacity: 0.3; }
+            100% { opacity: 1; }
+        }
+
         .rank-item { padding: 10px; border-radius: 8px; margin: 5px 0; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
         .rank-top { background: #f1f9ff; border: 1px solid #4a90e2; font-weight: bold; }
         @media (max-width: 600px) { #main-container { flex-direction: column; } #user-sidebar { width: 100%; border-left: none; border-top: 1px solid #ddd; } #host-controller { width: 100%; } }
@@ -30,6 +48,8 @@
 <body>
 <div id="main-container">
     <div id="game-area">
+        <div id="event-banner">🔥 지금 정답을 맞히면 점수가 2배! 🔥</div>
+
         <div id="screen-scene1" class="screen active">
             <h1>🎮 이 송 퀴 - 대기중</h1>
             <input type="text" id="nickname-input" placeholder="닉네임 입력">
@@ -126,6 +146,11 @@
         if (sceneID === "scene2") startDescriptionAnimation();
     });
 
+    // [복구] 2배 이벤트 배너 토글 로직
+    socket.on('multiplier_update', (m) => {
+        document.getElementById('event-banner').style.display = (m === 2) ? 'block' : 'none';
+    });
+
     function toggleLocalIDView() {
         const pw = document.getElementById('host-pw').value;
         if(pw !== '1234') return alert("비밀번호!");
@@ -149,7 +174,6 @@
         listDiv.innerHTML = lastPlayersData.map(u => {
             const idText = amIShowingIDs ? `<br><small style="color:blue">[ID: ${u.userID}]</small>` : '';
             const submitStatus = (currentQuestionIndex >= 0) ? (u.answered ? '✅' : '⏳') : '';
-            // 사이드바에서 (점수) 부분 제거 
             return `
                 <div class="user-entry">
                     <div>
@@ -179,14 +203,14 @@
             const btn = document.createElement('button');
             btn.className = 'btn-choice'; btn.innerText = choice;
             btn.onclick = () => {
-                if(data.type === 'multi') {
+                if(data.type === 'multi' || data.type === 'balance') {
                     if(currentSelected.includes(i)) { currentSelected = currentSelected.filter(v => v !== i); btn.classList.remove('selected'); }
                     else { currentSelected.push(i); btn.classList.add('selected'); }
                 } else { socket.emit('submit_answer', [i]); area.style.display = 'none'; }
             };
             area.appendChild(btn);
         });
-        document.getElementById('submit-btn').style.display = (data.type === 'multi') ? 'block' : 'none';
+        document.getElementById('submit-btn').style.display = (data.type === 'multi' || data.type === 'balance') ? 'block' : 'none';
         renderUserList();
     });
 
@@ -194,23 +218,16 @@
         changeScreen('screen-reveal');
         document.getElementById('reveal-title').innerText = "결과 공개!";
         document.getElementById('correct-desc').innerText = data.desc;
-
         const listDiv = document.getElementById('random-correct-list');
         const countP = document.getElementById('total-correct-count');
 
         if (data.type === "balance") {
-            // 밸런스 게임 결과 출력
             countP.innerText = "다수결 투표 현황";
             listDiv.innerHTML = data.counts.map((count, i) => {
                 const isWinner = data.winners.includes(i);
-                return `
-                    <div style="margin:10px 0; padding:10px; background:${isWinner?'#e1f5fe':'#f5f5f5'}; border-radius:10px;">
-                        ${isWinner ? '👑 ' : ''}<b>${i+1}번: ${count}명</b> 선택
-                    </div>
-                `;
+                return `<div style="margin:10px 0; padding:10px; background:${isWinner?'#e1f5fe':'#f5f5f5'}; border-radius:10px;">${isWinner ? '👑 ' : ''}<b>${i+1}번: ${count}명</b> 선택</div>`;
             }).join('');
         } else {
-            // 기존 퀴즈 결과 출력 [cite: 1424]
             countP.innerText = "총 정답 인원: " + data.totalCorrect + "명";
             listDiv.innerText = data.randomFive.length > 0 ? data.randomFive.join(', ') : '정답자가 없습니다.';
         }
@@ -222,11 +239,7 @@
         const container = document.getElementById('mid-rank-container');
         container.innerHTML = formattedRank.map(r => {
             const isTop = r.rank <= 3;
-            return `
-                <div class="rank-item ${isTop ? 'rank-top' : ''}">
-                    ${r.rank}등 ${isTop ? r.name : ''} ${r.score}점
-                </div>
-            `;
+            return `<div class="rank-item ${isTop ? 'rank-top' : ''}">${r.rank}등 ${isTop ? r.name : ''} ${r.score}점</div>`;
         }).join('');
     });
 
