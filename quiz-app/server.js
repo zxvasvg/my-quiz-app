@@ -25,6 +25,8 @@ function startNextQuestion() {
     submittedCount = 0;
     scoreMultiplier = 1;
 
+    io.emit('multiplier_update', 1);
+
     if (currentQuestionIndex < quizBank.length) {
         Object.values(players).forEach(p => {
             p.answered = false;
@@ -65,6 +67,16 @@ io.on('connection', (socket) => {
     socket.on('request_start', (password) => {
         if (password === '1234') {
             if (gameState === "scene1") {
+                // [핵심 수정] 새 게임을 시작할 때 모든 유저의 점수와 상태를 0으로 리셋
+                Object.values(players).forEach(p => {
+                    p.score = 0;
+                    p.answered = false;
+                    p.isCorrect = false;
+                    p.lastChoice = undefined;
+                });
+                // 리셋된 점수(0점)를 사이드바에 즉시 반영
+                io.emit('update_user_list', { players: Object.values(players) });
+
                 gameState = "scene2";
                 io.emit('change_scene', "scene2");
             } else if (gameState === "scene2") {
