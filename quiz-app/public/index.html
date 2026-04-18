@@ -3,46 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>이 송 퀴 ver 1.44</title>
+    <title>이 송 퀴 ver 1.5/title>
     <style>
         body { font-family: sans-serif; text-align: center; background: #f0f2f5; margin: 0; }
         #main-container { display: flex; min-height: 100vh; }
-        #game-area { flex: 3; padding: 20px; position: relative; }
+        #game-area { flex: 3; padding: 20px; position: relative; overflow: hidden; }
         #user-sidebar { flex: 1; background: #fff; border-left: 2px solid #ddd; padding: 15px; min-width: 180px; text-align: left; }
         .screen { display: none; padding: 10px; }
         .active { display: block; }
-        input { width: 80%; padding: 12px; margin: 5px 0; border-radius: 8px; border: 1px solid #ddd; }
         .btn-choice { width: 100%; padding: 18px; margin: 8px 0; border: none; border-radius: 12px; background: white; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         .btn-choice.selected { background: #4a90e2 !important; color: white; }
-        #host-controller { position: fixed; bottom: 0; left: 0; width: 75%; background: #222; color: white; padding: 10px; display: none; justify-content: center; gap: 8px; flex-wrap: wrap; z-index: 1000; }
+        #host-controller { position: fixed; bottom: 0; left: 0; width: 75%; background: #222; color: white; padding: 10px; display: none; justify-content: center; gap: 5px; flex-wrap: wrap; z-index: 1000; }
         .user-entry { margin-bottom: 12px; padding-bottom: 5px; border-bottom: 1px solid #eee; display: flex; align-items: center; justify-content: space-between; }
         .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 5px; }
         .online { background: #27ae60; box-shadow: 0 0 5px #27ae60; } .offline { background: #95a5a6; }
-        .submit-icon { font-size: 1.1rem; }
-        .fade-in-text { opacity: 0; transform: translateY(20px); transition: all 0.8s ease; margin: 15px 0; }
-        .fade-in-text.visible { opacity: 1; transform: translateY(0); }
+        #event-banner { display: none; background: #f1c40f; color: #000; padding: 12px; font-weight: bold; border-radius: 10px; margin-bottom: 15px; animation: blink 0.8s infinite; border: 2px solid #d35400; }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
 
-        /* [복구] 2배 이벤트 배너 및 반짝임 스타일 */
-        #event-banner { 
-            display: none; 
-            background: #f1c40f; 
-            color: #000; 
-            padding: 12px; 
-            font-weight: bold; 
-            border-radius: 10px; 
-            margin-bottom: 15px; 
-            animation: blink 0.8s infinite; /* 0.8초 간격 무한 반복 */
-            border: 2px solid #d35400;
-        }
-        @keyframes blink { 
-            0% { opacity: 1; }
-            50% { opacity: 0.3; }
-            100% { opacity: 1; }
-        }
+        /* [추가] 엔딩 크레딧 애니메이션 */
+        #credits-box { position: absolute; width: 100%; bottom: -100%; animation: scrollUp 20s linear forwards; }
+        @keyframes scrollUp { from { bottom: -100%; } to { bottom: 120%; } }
+        .credit-text { margin: 40px 0; font-size: 1.5rem; color: #2c3e50; }
 
-        .rank-item { padding: 10px; border-radius: 8px; margin: 5px 0; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .rank-top { background: #f1f9ff; border: 1px solid #4a90e2; font-weight: bold; }
-        @media (max-width: 600px) { #main-container { flex-direction: column; } #user-sidebar { width: 100%; border-left: none; border-top: 1px solid #ddd; } #host-controller { width: 100%; } }
+        /* [추가] 경품 그리드 */
+        .prize-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 20px; }
+        .prize-item { background: white; padding: 15px; border-radius: 10px; border: 2px solid #ddd; }
+
+        @media (max-width: 600px) { #main-container { flex-direction: column; } #user-sidebar { width: 100%; border-left: none; border-top: 1px solid #ddd; } #host-controller { width: 100%; } .prize-grid { grid-template-columns: repeat(2, 1fr); } }
     </style>
 </head>
 <body>
@@ -52,6 +39,7 @@
 
         <div id="screen-scene1" class="screen active">
             <h1>🎮 이 송 퀴 - 대기중</h1>
+            <p>닉네임을 입력하고 입장하세요!</p>
             <input type="text" id="nickname-input" placeholder="닉네임 입력">
             <button onclick="joinGame()" style="padding:15px 30px; background:#4a90e2; color:white; border:none; border-radius:10px;">입장하기</button>
         </div>
@@ -60,12 +48,9 @@
             <h2 style="color:#2c3e50; border-bottom:2px solid #ddd; padding-bottom:10px;">📜 퀴즈 설명</h2>
             <div id="desc-container">
                 <p class="fade-in-text">✅ 퀴즈는 총 3가지 종류가 있습니다.</p>
-                <p class="fade-in-text">1️⃣ OX 퀴즈</p>
-                <p class="fade-in-text">2️⃣ 4지 선다형 (단답형)</p>
-                <p class="fade-in-text">3️⃣ 밸런스 퀴즈 (다수결)</p>
-                <p class="fade-in-text">💡 다수결 퀴즈는 동률 시 모두 점수 획득!</p>
+                <p class="fade-in-text">1️⃣ OX 퀴즈, 2️⃣ 4지 선다형, 3️⃣ 밸런스 퀴즈</p>
                 <p class="fade-in-text">🔥 상황에 따라 2배 이벤트가 존재합니다.</p>
-                <p class="fade-in-text">🏆 모든 문제 풀이 후 최종 순위가 공개됩니다.</p>
+                <p class="fade-in-text">🏆 마지막엔 최종 우승자를 가립니다!</p>
             </div>
         </div>
 
@@ -78,36 +63,45 @@
 
         <div id="screen-reveal" class="screen">
             <h2 id="reveal-title" style="color:#27ae60;"></h2>
-            <p id="correct-desc" style="font-size:1.1rem; font-weight:bold;"></p>
-            <hr>
-            <h3>🎯 정답을 맞힌 운 좋은 5명</h3>
-            <div id="random-correct-list" style="font-size:1.2rem; color:#4a90e2; margin:20px 0;"></div>
-            <p id="total-correct-count" style="color:#666;"></p>
+            <p id="total-correct-count" style="background:#eee; padding:10px; border-radius:5px;"></p>
+            <div id="random-correct-list" style="margin:20px 0;"></div>
         </div>
 
-        <div id="screen-mid-rank" class="screen">
-            <h2>📊 실시간 중간 순위</h2>
-            <div id="mid-rank-container" style="max-width:400px; margin:0 auto; text-align:left;"></div>
+        <div id="screen-mid-rank" class="screen"><h2>📊 현재 순위</h2><div id="mid-rank-container"></div></div>
+        <div id="screen-result" class="screen"><h1>🏆 최종 결과</h1><div id="final-rank-list"></div></div>
+
+        <div id="screen-credits" class="screen">
+            <div id="credits-box">
+                <div class="credit-text">🎬 <b>Special Thanks To</b></div>
+                <div class="credit-text">오늘 함께해주신 모든 분들</div>
+                <div class="credit-text">즐거웠던 4월의 파티</div>
+                <div class="credit-text">--- 롤링 페이퍼 ---</div>
+                <div class="credit-text">"지코님 오늘 너무 멋지셨어요!"</div>
+                <div class="credit-text">"모두 건강하시고 다음에 또 봐요!"</div>
+                <div class="credit-text"><b>Powered by 이송퀴 ver 1.6</b></div>
+            </div>
         </div>
 
-        <div id="screen-result" class="screen"><h1>🏆 최종 결과</h1><div id="final-rank-list"></div><button onclick="location.reload()">재시작</button></div>
+        <div id="screen-prizes" class="screen">
+            <h2>🎁 행운의 경품 목록</h2>
+            <div class="prize-grid" id="prize-list"></div>
+        </div>
 
         <div id="host-controller">
-            <input type="password" id="host-pw" style="width:50px" placeholder="PW">
-            <button onclick="socket.emit('request_start', document.getElementById('host-pw').value)">다음단계</button>
-            <button onclick="socket.emit('request_reveal', document.getElementById('host-pw').value)" style="background:blue">정답공개</button>
-            <button onclick="socket.emit('request_mid_rank', document.getElementById('host-pw').value)" style="background:green">중간점검</button>
-            <button onclick="socket.emit('toggle_multiplier', document.getElementById('host-pw').value)" style="background:orange">2배 이벤트</button>
-            <button onclick="socket.emit('request_reset', document.getElementById('host-pw').value)" style="background:red">전체 초기화</button>
-            <button onclick="toggleLocalIDView()" style="background:gray">나만 ID 보기</button>
+            <input type="password" id="host-pw" style="width:40px" placeholder="PW">
+            <button onclick="sendStart('tutorial')" style="background:green">연습 시작</button>
+            <button onclick="sendStart('main')" style="background:blue">본게임 시작</button>
+            <button onclick="socket.emit('request_reveal', getPW())">정답공개</button>
+            <button onclick="socket.emit('request_mid_rank', getPW())">순위</button>
+            <button onclick="socket.emit('toggle_multiplier', getPW())" style="background:orange">2배</button>
+            <button onclick="socket.emit('request_scene', {pw:getPW(), scene:'prizes'})">경품</button>
+            <button onclick="socket.emit('request_scene', {pw:getPW(), scene:'credits'})">엔딩</button>
+            <button onclick="socket.emit('request_reset', getPW())" style="background:red">초기화</button>
         </div>
     </div>
 
     <div id="user-sidebar">
-        <h3 style="display:flex; justify-content:space-between; align-items:center;">
-            👥 참여자
-            <small onclick="toggleHostPanel()" style="color:#ccc; cursor:pointer; font-size:0.6rem;">관리</small>
-        </h3>
+        <h3 style="display:flex; justify-content:space-between; align-items:center;">👥 참여자 <small onclick="toggleHostPanel()" style="color:#ccc; cursor:pointer;">관리</small></h3>
         <div id="sidebar-user-list"></div>
     </div>
 </div>
@@ -120,88 +114,53 @@
     let lastPlayersData = [];
     let amIShowingIDs = false;
 
+    const getPW = () => document.getElementById('host-pw').value;
+    const sendStart = (mode) => socket.emit('request_start', { pw: getPW(), mode: mode });
+
     window.onload = () => {
         const savedName = localStorage.getItem('quiz_nickname');
         if (savedName) document.getElementById('nickname-input').value = savedName;
+        
+        // 경품 목록 생성 (1~20번)
+        const prizeGrid = document.getElementById('prize-list');
+        for(let i=1; i<=20; i++) {
+            prizeGrid.innerHTML += `<div class="prize-item"><b>${i}번</b><br><small>이미지 준비중</small></div>`;
+        }
     };
 
     function changeScreen(id) {
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-        document.getElementById(id).classList.add('active');
+        document.getElementById('screen-' + id).classList.add('active');
+        if(id === 'credits') {
+            const box = document.getElementById('credits-box');
+            box.style.animation = 'none'; box.offsetHeight; box.style.animation = null; // 애니메이션 리셋
+        }
     }
 
-    function toggleHostPanel() {
-        const panel = document.getElementById('host-controller');
-        panel.style.display = (panel.style.display === 'flex') ? 'none' : 'flex';
-    }
+    function toggleHostPanel() { const panel = document.getElementById('host-controller'); panel.style.display = (panel.style.display === 'flex') ? 'none' : 'flex'; }
 
-    function startDescriptionAnimation() {
-        const lines = document.querySelectorAll('#desc-container .fade-in-text');
-        lines.forEach((line, index) => {
-            setTimeout(() => line.classList.add('visible'), index * 1000);
-        });
-    }
-
-    socket.on('change_scene', (sceneID) => {
-        changeScreen('screen-' + sceneID);
-        if (sceneID === "scene2") startDescriptionAnimation();
+    socket.on('change_scene', (scene) => {
+        changeScreen(scene);
+        if (scene === "scene2") {
+            const lines = document.querySelectorAll('#desc-container .fade-in-text');
+            lines.forEach((line, index) => { setTimeout(() => line.classList.add('visible'), index * 1000); });
+        }
     });
 
-    // [복구] 2배 이벤트 배너 토글 로직
-    socket.on('multiplier_update', (m) => {
-        document.getElementById('event-banner').style.display = (m === 2) ? 'block' : 'none';
-    });
-
-    function toggleLocalIDView() {
-        const pw = document.getElementById('host-pw').value;
-        if(pw !== '1234') return alert("비밀번호!");
-        amIShowingIDs = !amIShowingIDs;
-        renderUserList();
-    }
-
-    function joinGame() {
-        const nickname = document.getElementById('nickname-input').value;
-        if(!nickname) return alert("닉네임!");
-        let userID = localStorage.getItem('quiz_id') || 'user_' + Math.random().toString(36).substr(2, 9);
-        localStorage.setItem('quiz_id', userID);
-        localStorage.setItem('quiz_nickname', nickname);
-        socket.emit('join_waiting_room', { userID, nickname });
-        changeScreen('screen-scene1'); 
-    }
+    socket.on('update_user_list', (data) => { lastPlayersData = data.players; renderUserList(); });
 
     function renderUserList() {
         const listDiv = document.getElementById('sidebar-user-list');
-        if (!listDiv) return;
-
-        // 서버에서 오는 lastPlayersData가 이미 offline 유저를 포함하도록 쏴줄 수도 있고, 
-        // 클라이언트에서 offline 유저 객체를 따로 받아 처리할 수도 있습니다.
-        // 여기서는 서버가 통합해서 쏴준다고 가정합니다. (위 server.js 로직 참고)
-        
         listDiv.innerHTML = lastPlayersData.map(u => {
-            const idText = amIShowingIDs ? `<br><small style="color:blue">[ID: ${u.userID}]</small>` : '';
-            const submitStatus = u.online ? ((currentQuestionIndex >= 0) ? (u.answered ? '✅' : '⏳') : '') : '📁'; // 오프라인은 서류함 아이콘
-            return `
-                <div class="user-entry">
-                    <div>
-                        <span class="status-dot ${u.online?'online':'offline'}"></span>
-                        <span style="${u.online ? '' : 'color:#999;'}">${u.nickname}${idText}</span>
-                    </div>
-                    <span class="submit-icon">${submitStatus}</span>
-                </div>
-            `;
+            const submitStatus = u.online ? ((currentQuestionIndex >= 0) ? (u.answered ? '✅' : '⏳') : '') : '📁';
+            return `<div class="user-entry"><div><span class="status-dot ${u.online?'online':'offline'}"></span><span style="${u.online?'':'color:#999'}">${u.nickname}</span></div><span class="submit-icon">${submitStatus}</span></div>`;
         }).join('');
     }
 
-    socket.on('update_user_list', (data) => {
-        lastPlayersData = data.players || data; 
-        renderUserList();
-    });
-
     socket.on('next_question', (data) => {
-        changeScreen('screen-quiz');
-        currentSelected = [];
-        currentQuestionIndex = data.index;
-        document.getElementById('question-text').innerText = (data.gameState === "tutorial" ? "[연습] " : "") + data.q;
+        changeScreen('quiz');
+        currentSelected = []; currentQuestionIndex = data.index;
+        document.getElementById('question-text').innerText = data.q;
         document.getElementById('rem-count').innerText = data.total;
         const area = document.getElementById('choices-area');
         area.innerHTML = ''; area.style.display = 'block';
@@ -217,68 +176,36 @@
             area.appendChild(btn);
         });
         document.getElementById('submit-btn').style.display = (data.type === 'multi' || data.type === 'balance') ? 'block' : 'none';
-        renderUserList();
     });
 
     socket.on('reveal_answer', (data) => {
-        changeScreen('screen-reveal');
+        changeScreen('reveal');
         document.getElementById('reveal-title').innerText = "결과 공개!";
-        document.getElementById('correct-desc').innerText = data.desc;
         const listDiv = document.getElementById('random-correct-list');
         const countP = document.getElementById('total-correct-count');
-
         if (data.type === "balance") {
-            // [수정] 3. 밸런스 게임 상세 결과 레이아웃
-            countP.innerHTML = `<div style="font-weight:bold; margin-bottom:10px;">${data.questionText}</div>`;
-            
-            // 상단 인원수 요약
-            const summary = data.options.map((opt, i) => `${i+1}번 ${opt} : ${data.counts[i]}명`).join(', ');
-            countP.innerHTML += `<div style="background:#eee; padding:10px; border-radius:5px;">${summary}</div>`;
-
-            // 정답(다수결) 선택자 전체 명단 나열
-            const winnersHTML = data.winners.map(winIdx => {
-                const names = data.votersByOption[winIdx].length > 0 ? data.votersByOption[winIdx].join(', ') : '없음';
-                return `
-                    <div style="margin-top:20px; border:2px solid #27ae60; padding:15px; border-radius:10px;">
-                        <div style="color:#27ae60; font-weight:bold;">🏆 ${winIdx+1}번 정답자(${data.options[winIdx]}) 전부 공개</div>
-                        <div style="margin-top:10px; word-break:keep-all;">${names}</div>
-                    </div>
-                `;
-            }).join('');
-            
-            listDiv.innerHTML = winnersHTML;
+            countP.innerText = data.options.map((opt, i) => `${i+1}번 ${opt}: ${data.counts[i]}명`).join(', ');
+            listDiv.innerHTML = data.winners.map(winIdx => `<div style="border:2px solid #27ae60; padding:10px; border-radius:10px; margin-top:10px;">🏆 ${data.options[winIdx]} 정답자: ${data.votersByOption[winIdx].join(', ')}</div>`).join('');
         } else {
-            // [수정] 4. 일반 퀴즈 - 온라인+오프라인 통합 명단 출력 
             countP.innerText = "총 정답 인원: " + data.totalCorrect + "명";
-            listDiv.style.wordBreak = "keep-all";
-            listDiv.innerText = data.allCorrectNames.length > 0 ? data.allCorrectNames.join(', ') : '정답자가 없습니다.';
+            listDiv.innerText = data.allCorrectNames.join(', ');
         }
-        renderUserList();
     });
 
     socket.on('show_mid_rank', (formattedRank) => {
-        changeScreen('screen-mid-rank');
-        const container = document.getElementById('mid-rank-container');
-        container.innerHTML = formattedRank.map(r => {
-            const isTop = r.rank <= 3;
-            return `<div class="rank-item ${isTop ? 'rank-top' : ''}">${r.rank}등 ${isTop ? r.name : ''} ${r.score}점</div>`;
-        }).join('');
+        changeScreen('mid-rank');
+        document.getElementById('mid-rank-container').innerHTML = formattedRank.map(r => `<div style="padding:10px; margin:5px; background:white; border-radius:8px;">${r.rank}등 ${r.type==='full'?r.name:''} ${r.score}점</div>`).join('');
     });
 
-    function finalSubmit() {
-        if (currentSelected.length === 0) return alert("선택하세요!");
-        socket.emit('submit_answer', currentSelected);
-        document.getElementById('choices-area').style.display = 'none';
-        document.getElementById('submit-btn').style.display = 'none';
-    }
-
-    socket.on('update_remaining', (rem) => { document.getElementById('rem-count').innerText = rem; });
     socket.on('game_over', (ranks) => {
-        changeScreen('screen-result');
-        currentQuestionIndex = -1;
-        document.getElementById('final-rank-list').innerHTML = ranks.map((r, i) => `<div>${i+1}등: ${r.nickname} (${r.score || 0}점)</div>`).join('');
-        renderUserList();
+        changeScreen('result');
+        document.getElementById('final-rank-list').innerHTML = ranks.slice(0,10).map((r, i) => `<div>${i+1}등: ${r.nickname} (${r.score}점)</div>`).join('');
     });
+
+    function finalSubmit() { socket.emit('submit_answer', currentSelected); document.getElementById('choices-area').style.display = 'none'; document.getElementById('submit-btn').style.display = 'none'; }
+    function joinGame() { const nick = document.getElementById('nickname-input').value; if(!nick) return alert("닉네임!"); localStorage.setItem('quiz_id', localStorage.getItem('quiz_id') || 'user_'+Math.random().toString(36).substr(2,9)); localStorage.setItem('quiz_nickname', nick); socket.emit('join_waiting_room', { userID: localStorage.getItem('quiz_id'), nickname: nick }); }
+    socket.on('multiplier_update', (m) => { document.getElementById('event-banner').style.display = (m === 2) ? 'block' : 'none'; });
+    socket.on('update_remaining', (rem) => { document.getElementById('rem-count').innerText = rem; });
 </script>
 </body>
 </html>
