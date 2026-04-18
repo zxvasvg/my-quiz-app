@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>이 송 퀴 ver 1.42</title>
+    <title>이 송 퀴 ver 1.43</title>
     <style>
         body { font-family: sans-serif; text-align: center; background: #f0f2f5; margin: 0; }
         #main-container { display: flex; min-height: 100vh; }
@@ -171,14 +171,19 @@
     function renderUserList() {
         const listDiv = document.getElementById('sidebar-user-list');
         if (!listDiv) return;
+
+        // 서버에서 오는 lastPlayersData가 이미 offline 유저를 포함하도록 쏴줄 수도 있고, 
+        // 클라이언트에서 offline 유저 객체를 따로 받아 처리할 수도 있습니다.
+        // 여기서는 서버가 통합해서 쏴준다고 가정합니다. (위 server.js 로직 참고)
+        
         listDiv.innerHTML = lastPlayersData.map(u => {
             const idText = amIShowingIDs ? `<br><small style="color:blue">[ID: ${u.userID}]</small>` : '';
-            const submitStatus = (currentQuestionIndex >= 0) ? (u.answered ? '✅' : '⏳') : '';
+            const submitStatus = u.online ? ((currentQuestionIndex >= 0) ? (u.answered ? '✅' : '⏳') : '') : '📁'; // 오프라인은 서류함 아이콘
             return `
                 <div class="user-entry">
                     <div>
                         <span class="status-dot ${u.online?'online':'offline'}"></span>
-                        <span>${u.nickname}${idText}</span>
+                        <span style="${u.online ? '' : 'color:#999;'}">${u.nickname}${idText}</span>
                     </div>
                     <span class="submit-icon">${submitStatus}</span>
                 </div>

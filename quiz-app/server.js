@@ -5,20 +5,38 @@ const io = require('socket.io')(http);
 
 app.use(express.static('public'));
 
-let players = {}; 
+// [추가] 방장 비밀번호 상수 관리
+const HOST_PASSWORD = "1224";
+
+let players = {};
+let offlinePlayers = {};
 let currentQuestionIndex = -1;
 let submittedCount = 0; 
 let gameState = "scene1"; 
 let scoreMultiplier = 1; 
 
 const quizBank = [
-    { type: "single", q: "연습문제: 준비되셨나요?", a: ["네!", "아니오"], cor: [0], desc: "튜토리얼 완료!" },
-    { type: "single", q: "한라산의 높이는?", a: ["1,947m", "1,950m", "2,024m", "1,850m"], cor: [0], desc: "한라산은 해발 1,947m입니다!" },
-    { type: "single", q: "닌텐도 기기가 아닌 것은?", a: ["스위치", "플스", "게임보이", "wii"], cor: [1], desc: "플스는 소니제품입니다." },
-    { type: "ox", q: "딸기는 식물학적으로 '채소'에 해당한다?", a: ["O (맞음)", "X (틀림)"], cor: [0], desc: "밭에서 자라는 딸기는 채소(과채류)입니다." },
-    { type: "balance", q: "[밸런스] 평생 한 가지만 먹어야 한다면?", a: ["짜장면", "짬뽕"], desc: "다수가 선택한 메뉴가 승리!" },
-    { type: "balance", q: "[밸런스] 가위 바위 보!", a: ["가위", "바위", "보"], desc: "가장 많이 나온 손이 승리!" }
+    { type: "single", q: "0.연습문제: 준비되셨나요?", a: ["네!", "아니오"], cor: [0], desc: "튜토리얼 완료!" },
+    { type: "single", q: "1.한라산의 높이는?", a: ["1,947m", "1,950m", "2,024m", "1,850m"], cor: [0], desc: "한라산은 해발 1,947m입니다!" },
+    { type: "single", q: "2.닌텐도 기기가 아닌 것은?", a: ["스위치", "플스", "게임보이", "wii"], cor: [1], desc: "플스는 소니제품입니다." },
+    { type: "ox", q: "3.딸기는 식물학적으로 '채소'에 해당한다?", a: ["O (맞음)", "X (틀림)"], cor: [0], desc: "밭에서 자라는 딸기는 채소(과채류)입니다." },
+    { type: "balance", q: "[밸런스] 4.좋아하는 치킨 종류는?", a: ["양념치킨", "후라이드치킨"], desc: "가장 많이 나온 답이 승리!" },
+    { type: "balance", q: "[밸런스] 5.더 선호하는 스타일은?", a: ["월급 170 백수", "월급 580 키즈(9:00 ~ 19:00)"], desc: "가장 많이 나온 답이 승리!" },
+    { type: "balance", q: "[밸런스] 6.견디기 힘든 최악의 상황은..?", a: ["한여름에 에어컨 없이 지내기", "한겨울에 온수 없이 샤워하기", "1년 동안 탄산음료/커피 금지"], desc: "가장 많이 나온 답이 승리!" },
+    { type: "balance", q: "[밸런스] 7.초능력을 딱 하나만 가질 수 있다면", a: ["순간이동", "시간조절(과거로가기/멈추기)", "투명인간"], desc: "가장 많이 나온 답이 승리!" },
+    { type: "balance", q: "[밸런스] 8.한 곳에서만 살 수 있다면..?", a: ["10평 서울", "20평 부산", "30평 제주"], desc: "가장 많이 나온 답이 승리!" }
 ];
+
+const offlineData = [
+    { userID: "off_01", nickname: "JJO", answers: [[0], [0], [1], [0], [0], [1], [0], [0], [1]] },
+    { userID: "off_02", nickname: "choyoung", answers: [[0], [1], [1], [1], [1], [0], [1], [0], [0]] }
+];
+
+// 온라인+오프라인 통합 리스트를 클라이언트에 전송하는 함수
+function broadcastUserList() {
+    const all = [...Object.values(players), ...Object.values(offlinePlayers)];
+    io.emit('update_user_list', { players: all });
+}
 
 function startNextQuestion() {
     currentQuestionIndex++;
@@ -30,7 +48,7 @@ function startNextQuestion() {
     if (currentQuestionIndex < quizBank.length) {
         Object.values(players).forEach(p => {
             p.answered = false;
-            p.isCorrect = false; // 정답 여부 초기화
+            p.isCorrect = false;
         });
         
         io.emit('next_question', {
@@ -41,9 +59,10 @@ function startNextQuestion() {
             a: quizBank[currentQuestionIndex].a,
             total: Object.values(players).filter(p => p.online).length
         });
-        io.emit('update_user_list', { players: Object.values(players) });
+        broadcastUserList();
     } else {
-        const sortedRank = Object.values(players).sort((a, b) => b.score - a.score);
+        const all = [...Object.values(players), ...Object.values(offlinePlayers)];
+        const sortedRank = all.sort((a, b) => b.score - a.score);
         io.emit('game_over', sortedRank);
         currentQuestionIndex = -1;
         gameState = "scene1"; 
@@ -61,22 +80,20 @@ io.on('connection', (socket) => {
             players[userID].socketID = socket.id;
         }
         socket.userID = userID;
-        io.emit('update_user_list', { players: Object.values(players) });
+        broadcastUserList();
     });
 
     socket.on('request_start', (password) => {
-        if (password === '1234') {
+        if (password === HOST_PASSWORD) {
             if (gameState === "scene1") {
-                // [핵심 수정] 새 게임을 시작할 때 모든 유저의 점수와 상태를 0으로 리셋
                 Object.values(players).forEach(p => {
-                    p.score = 0;
-                    p.answered = false;
-                    p.isCorrect = false;
-                    p.lastChoice = undefined;
+                    p.score = 0; p.answered = false; p.isCorrect = false; p.lastChoice = undefined;
                 });
-                // 리셋된 점수(0점)를 사이드바에 즉시 반영
-                io.emit('update_user_list', { players: Object.values(players) });
-
+                offlinePlayers = {};
+                offlineData.forEach(off => {
+                    offlinePlayers[off.userID] = { userID: off.userID, nickname: off.nickname, score: 0, online: false };
+                });
+                broadcastUserList();
                 gameState = "scene2";
                 io.emit('change_scene', "scene2");
             } else if (gameState === "scene2") {
@@ -88,63 +105,58 @@ io.on('connection', (socket) => {
         }
     });
 
-    // 정답 공개 (밸런스 게임 집계 로직 포함)
     socket.on('request_reveal', (password) => {
-        if (password === '1234' && currentQuestionIndex >= 0) {
+        if (password === HOST_PASSWORD && currentQuestionIndex >= 0) {
             const currentQuiz = quizBank[currentQuestionIndex];
-            let resultData = {
-                type: currentQuiz.type,
-                desc: currentQuiz.desc
-            };
+            // [정의 필요] resultData 생성
+            let resultData = { type: currentQuiz.type, desc: currentQuiz.desc };
 
+            // 오프라인 채점 (일반 퀴즈)
+            if (currentQuiz.type !== "balance") {
+                offlineData.forEach(off => {
+                    const offPlayer = offlinePlayers[off.userID];
+                    const offAnswer = off.answers[currentQuestionIndex];
+                    const isCorrect = JSON.stringify(offAnswer.sort()) === JSON.stringify(currentQuiz.cor.sort());
+                    if (isCorrect && currentQuestionIndex > 0) offPlayer.score += (10 * scoreMultiplier);
+                });
+            }
+
+            let counts = new Array(currentQuiz.a.length).fill(0);
             if (currentQuiz.type === "balance") {
-                // 1. 투표 집계 (C++의 map이나 배열 카운팅과 유사)
-                let counts = new Array(currentQuiz.a.length).fill(0);
-                Object.values(players).forEach(p => {
-                    if (p.answered && p.lastChoice !== undefined) {
-                        counts[p.lastChoice]++;
-                    }
-                });
+                Object.values(players).forEach(p => { if (p.answered && p.lastChoice !== undefined) counts[p.lastChoice]++; });
+                offlineData.forEach(off => { const choice = off.answers[currentQuestionIndex][0]; if (choice !== undefined) counts[choice]++; });
 
-                // 2. 최대 득표수 찾기
                 const maxVotes = Math.max(...counts);
-                
-                // 3. 공동 우승자 처리 (동률 시 모두 정답) 
                 const winners = [];
-                counts.forEach((count, idx) => {
-                    if (count === maxVotes && maxVotes > 0) winners.push(idx);
-                });
+                counts.forEach((count, idx) => { if (count === maxVotes && maxVotes > 0) winners.push(idx); });
 
-                // 4. 승자들에게 점수 부여
+                offlineData.forEach(off => { if (winners.includes(off.answers[currentQuestionIndex][0]) && currentQuestionIndex > 0) offlinePlayers[off.userID].score += (10 * scoreMultiplier); });
                 Object.values(players).forEach(p => {
-                    if (p.answered && winners.includes(p.lastChoice)) {
-                        p.isCorrect = true;
-                        p.score += (10 * scoreMultiplier);
-                    } else {
-                        p.isCorrect = false;
-                    }
+                    if (p.answered && winners.includes(p.lastChoice)) { p.isCorrect = true; p.score += (10 * scoreMultiplier); }
+                    else { p.isCorrect = false; }
                 });
 
-                resultData.counts = counts; // 각 항목별 득표수 전송
-                resultData.winners = winners; // 승리한 항목 인덱스 전송
+                resultData.counts = counts;
+                resultData.winners = winners;
             } else {
-                // 기존 퀴즈 타입 정답자 추출 로직 [cite: 1424]
                 const correctPlayers = Object.values(players).filter(p => p.answered && p.isCorrect);
-                resultData.totalCorrect = correctPlayers.length;
+                resultData.totalCorrect = correctPlayers.length + Object.values(offlinePlayers).filter(off => {
+                    const offAns = offlineData.find(d => d.userID === off.userID).answers[currentQuestionIndex];
+                    return JSON.stringify(offAns.sort()) === JSON.stringify(currentQuiz.cor.sort());
+                }).length;
                 const shuffled = [...correctPlayers].sort(() => 0.5 - Math.random());
                 resultData.randomFive = shuffled.slice(0, 5).map(p => p.nickname);
                 resultData.correct = currentQuiz.cor;
             }
-
             io.emit('reveal_answer', resultData);
-            io.emit('update_user_list', { players: Object.values(players) }); // 점수 갱신 반영
+            broadcastUserList();
         }
     });
 
-    // 중간 점검 (1~3등 이름 공개, 나머지 점수만)
     socket.on('request_mid_rank', (password) => {
-        if (password === '1234') {
-            const sorted = Object.values(players).sort((a, b) => b.score - a.score);
+        if (password === HOST_PASSWORD) {
+            const all = [...Object.values(players), ...Object.values(offlinePlayers)];
+            const sorted = all.sort((a, b) => b.score - a.score);
             const formattedRank = sorted.map((p, i) => {
                 if (i < 3) return { rank: i + 1, name: p.nickname, score: p.score, type: 'full' };
                 return { rank: i + 1, score: p.score, type: 'scoreOnly' };
@@ -154,7 +166,7 @@ io.on('connection', (socket) => {
     });
 
     socket.on('toggle_multiplier', (password) => {
-        if (password === '1234') {
+        if (password === HOST_PASSWORD) {
             scoreMultiplier = (scoreMultiplier === 1) ? 2 : 1;
             io.emit('multiplier_update', scoreMultiplier);
         }
@@ -165,11 +177,8 @@ io.on('connection', (socket) => {
         if (p && !p.answered) {
             p.answered = true;
             submittedCount++;
-            p.lastChoice = selectedIndices[0]; // 밸런스 게임용 선택값 저장
-
+            p.lastChoice = selectedIndices[0];
             const currentQuiz = quizBank[currentQuestionIndex];
-            
-            // 일반 퀴즈는 즉시 정답 체크, 밸런스는 나중에 체크
             if (currentQuiz.type !== "balance") {
                 const correctAnswers = currentQuiz.cor;
                 const isCorrect = selectedIndices.length === correctAnswers.length &&
@@ -177,16 +186,15 @@ io.on('connection', (socket) => {
                 p.isCorrect = isCorrect;
                 if (isCorrect && currentQuestionIndex > 0) p.score += (10 * scoreMultiplier);
             }
-            
             io.emit('update_remaining', Object.values(players).filter(p => p.online).length - submittedCount);
-            io.emit('update_user_list', { players: Object.values(players) });
+            broadcastUserList();
         }
     });
 
     socket.on('disconnect', () => {
         if (socket.userID && players[socket.userID]) {
             players[socket.userID].online = false;
-            io.emit('update_user_list', { players: Object.values(players) });
+            broadcastUserList();
         }
     });
 });
