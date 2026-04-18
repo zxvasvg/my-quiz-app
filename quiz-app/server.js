@@ -14,6 +14,7 @@ let currentBank = []; // 현재 진행 중인 퀴즈 뱅크
 let submittedCount = 0; 
 let gameState = "scene1"; 
 let scoreMultiplier = 1; 
+let prizeWinners = {};
 
 // 1. 튜토리얼용 퀴즈 (연습용)
 const tutorialBank = [
@@ -105,6 +106,23 @@ io.on('connection', (socket) => {
     socket.on('request_scene', (data) => {
         if (data.pw === HOST_PASSWORD) {
             io.emit('change_scene', data.scene);
+        }
+    });
+
+    socket.on('claim_prize', (data) => {
+        if (data.pw === HOST_PASSWORD) {
+            prizeWinners[data.prizeId] = data.winnerName;
+            io.emit('prize_updated', prizeWinners); // 모든 유저에게 품절 현황 전송
+        }
+    });
+
+    socket.on('request_reset', (password) => {
+        if (password === HOST_PASSWORD) {
+            players = {}; offlinePlayers = {}; prizeWinners = {}; // 경품도 초기화
+            currentQuestionIndex = -1; gameState = "scene1";
+            io.emit('change_scene', "scene1");
+            io.emit('prize_updated', prizeWinners);
+            broadcastUserList();
         }
     });
 
