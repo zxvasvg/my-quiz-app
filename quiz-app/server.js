@@ -83,9 +83,26 @@ io.on('connection', (socket) => {
         broadcastUserList();
     });
 
+    socket.on('request_reset', (password) => {
+        if (password === HOST_PASSWORD) {
+            // 모든 점수 및 상태 초기화 
+            players = {}; 
+            offlinePlayers = {};
+            currentQuestionIndex = -1;
+            gameState = "scene1";
+            scoreMultiplier = 1;
+
+            io.emit('multiplier_update', 1);
+            io.emit('change_scene', "scene1");
+            broadcastUserList();
+            console.log("Game fully reset by Host");
+        }
+    });
+
     socket.on('request_start', (password) => {
         if (password === HOST_PASSWORD) {
             if (gameState === "scene1") {
+                // 새 게임 시작 시 점수 0으로 
                 Object.values(players).forEach(p => {
                     p.score = 0; p.answered = false; p.isCorrect = false; p.lastChoice = undefined;
                 });
@@ -108,10 +125,14 @@ io.on('connection', (socket) => {
     socket.on('request_reveal', (password) => {
         if (password === HOST_PASSWORD && currentQuestionIndex >= 0) {
             const currentQuiz = quizBank[currentQuestionIndex];
-            // [정의 필요] resultData 생성
-            let resultData = { type: currentQuiz.type, desc: currentQuiz.desc };
+            let resultData = { 
+                type: currentQuiz.type, 
+                desc: currentQuiz.desc,
+                questionText: currentQuiz.q,
+                options: currentQuiz.a
+            };
 
-            // 오프라인 채점 (일반 퀴즈)
+            // 오프라인 채점 (일반 퀴즈) [cite: 1549]
             if (currentQuiz.type !== "balance") {
                 offlineData.forEach(off => {
                     const offPlayer = offlinePlayers[off.userID];
@@ -121,33 +142,59 @@ io.on('connection', (socket) => {
                 });
             }
 
-            let counts = new Array(currentQuiz.a.length).fill(0);
             if (currentQuiz.type === "balance") {
-                Object.values(players).forEach(p => { if (p.answered && p.lastChoice !== undefined) counts[p.lastChoice]++; });
-                offlineData.forEach(off => { const choice = off.answers[currentQuestionIndex][0]; if (choice !== undefined) counts[choice]++; });
+                // 밸런스 게임: 투표 집계 및 각 항목별 선택자 명단 수집 [cite: 1439, 1496]
+                let counts = new Array(currentQuiz.a.length).fill(0);
+                let votersByOption = currentQuiz.a.map(() => []);
+
+                // 온라인 참여자 분류
+                Object.values(players).forEach(p => {
+                    if (p.answered && p.lastChoice !== undefined) {
+                        counts[p.lastChoice]++;
+                        votersByOption[p.lastChoice].push(p.nickname);
+                    }
+                });
+                // 오프라인 참여자 분류
+                offlineData.forEach(off => {
+                    const choice = off.answers[currentQuestionIndex][0];
+                    if (choice !== undefined) {
+                        counts[choice]++;
+                        votersByOption[choice].push(off.nickname);
+                    }
+                });
 
                 const maxVotes = Math.max(...counts);
                 const winners = [];
                 counts.forEach((count, idx) => { if (count === maxVotes && maxVotes > 0) winners.push(idx); });
 
-                offlineData.forEach(off => { if (winners.includes(off.answers[currentQuestionIndex][0]) && currentQuestionIndex > 0) offlinePlayers[off.userID].score += (10 * scoreMultiplier); });
+                // 점수 부여 (온라인+오프라인) [cite: 1501]
+                offlineData.forEach(off => {
+                    if (winners.includes(off.answers[currentQuestionIndex][0]) && currentQuestionIndex > 0) {
+                        offlinePlayers[off.userID].score += (10 * scoreMultiplier);
+                    }
+                });
                 Object.values(players).forEach(p => {
-                    if (p.answered && winners.includes(p.lastChoice)) { p.isCorrect = true; p.score += (10 * scoreMultiplier); }
-                    else { p.isCorrect = false; }
+                    if (p.answered && winners.includes(p.lastChoice)) {
+                        p.isCorrect = true; p.score += (10 * scoreMultiplier);
+                    } else { p.isCorrect = false; }
                 });
 
                 resultData.counts = counts;
                 resultData.winners = winners;
+                resultData.votersByOption = votersByOption; // 각 옵션별 명단 전송
             } else {
-                const correctPlayers = Object.values(players).filter(p => p.answered && p.isCorrect);
-                resultData.totalCorrect = correctPlayers.length + Object.values(offlinePlayers).filter(off => {
+                // 일반 퀴즈: 온라인+오프라인 통합 정답자 명단 추출 
+                const correctOnline = Object.values(players).filter(p => p.answered && p.isCorrect).map(p => p.nickname);
+                const correctOffline = Object.values(offlinePlayers).filter(off => {
                     const offAns = offlineData.find(d => d.userID === off.userID).answers[currentQuestionIndex];
                     return JSON.stringify(offAns.sort()) === JSON.stringify(currentQuiz.cor.sort());
-                }).length;
-                const shuffled = [...correctPlayers].sort(() => 0.5 - Math.random());
-                resultData.randomFive = shuffled.slice(0, 5).map(p => p.nickname);
-                resultData.correct = currentQuiz.cor;
+                }).map(p => p.nickname);
+
+                resultData.allCorrectNames = [...correctOnline, ...correctOffline];
+                resultData.totalCorrect = resultData.allCorrectNames.length;
+                resultData.correctIndices = currentQuiz.cor;
             }
+
             io.emit('reveal_answer', resultData);
             broadcastUserList();
         }

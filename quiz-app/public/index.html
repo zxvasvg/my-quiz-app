@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>이 송 퀴 ver 1.43</title>
+    <title>이 송 퀴 ver 1.44</title>
     <style>
         body { font-family: sans-serif; text-align: center; background: #f0f2f5; margin: 0; }
         #main-container { display: flex; min-height: 100vh; }
@@ -98,6 +98,7 @@
             <button onclick="socket.emit('request_reveal', document.getElementById('host-pw').value)" style="background:blue">정답공개</button>
             <button onclick="socket.emit('request_mid_rank', document.getElementById('host-pw').value)" style="background:green">중간점검</button>
             <button onclick="socket.emit('toggle_multiplier', document.getElementById('host-pw').value)" style="background:orange">2배 이벤트</button>
+            <button onclick="socket.emit('request_reset', document.getElementById('host-pw').value)" style="background:red">전체 초기화</button>
             <button onclick="toggleLocalIDView()" style="background:gray">나만 ID 보기</button>
         </div>
     </div>
@@ -227,14 +228,30 @@
         const countP = document.getElementById('total-correct-count');
 
         if (data.type === "balance") {
-            countP.innerText = "다수결 투표 현황";
-            listDiv.innerHTML = data.counts.map((count, i) => {
-                const isWinner = data.winners.includes(i);
-                return `<div style="margin:10px 0; padding:10px; background:${isWinner?'#e1f5fe':'#f5f5f5'}; border-radius:10px;">${isWinner ? '👑 ' : ''}<b>${i+1}번: ${count}명</b> 선택</div>`;
+            // [수정] 3. 밸런스 게임 상세 결과 레이아웃
+            countP.innerHTML = `<div style="font-weight:bold; margin-bottom:10px;">${data.questionText}</div>`;
+            
+            // 상단 인원수 요약
+            const summary = data.options.map((opt, i) => `${i+1}번 ${opt} : ${data.counts[i]}명`).join(', ');
+            countP.innerHTML += `<div style="background:#eee; padding:10px; border-radius:5px;">${summary}</div>`;
+
+            // 정답(다수결) 선택자 전체 명단 나열
+            const winnersHTML = data.winners.map(winIdx => {
+                const names = data.votersByOption[winIdx].length > 0 ? data.votersByOption[winIdx].join(', ') : '없음';
+                return `
+                    <div style="margin-top:20px; border:2px solid #27ae60; padding:15px; border-radius:10px;">
+                        <div style="color:#27ae60; font-weight:bold;">🏆 ${winIdx+1}번 정답자(${data.options[winIdx]}) 전부 공개</div>
+                        <div style="margin-top:10px; word-break:keep-all;">${names}</div>
+                    </div>
+                `;
             }).join('');
+            
+            listDiv.innerHTML = winnersHTML;
         } else {
+            // [수정] 4. 일반 퀴즈 - 온라인+오프라인 통합 명단 출력 
             countP.innerText = "총 정답 인원: " + data.totalCorrect + "명";
-            listDiv.innerText = data.randomFive.length > 0 ? data.randomFive.join(', ') : '정답자가 없습니다.';
+            listDiv.style.wordBreak = "keep-all";
+            listDiv.innerText = data.allCorrectNames.length > 0 ? data.allCorrectNames.join(', ') : '정답자가 없습니다.';
         }
         renderUserList();
     });
