@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>이 송 퀴 ver 1.61</title>
+    <title>이 송 퀴 ver 1.62</title>
     <style>
         body { font-family: sans-serif; text-align: center; background: #f0f2f5; margin: 0; }
         #main-container { display: flex; min-height: 100vh; }
@@ -148,6 +148,11 @@
     let lastPlayersData = [];
     let amIShowingIDs = false;
 
+    const prizeImages = [
+        "https://i.imgur.com/yXL0cU8.jpeg?1", // 1번 경품
+        "https://i.imgur.com/eSmoPX4.jpeg",
+        "https://i.imgur.com/ZgfVo57.jpeg"];
+
     const getPW = () => document.getElementById('host-pw').value;
     const sendStart = (mode) => socket.emit('request_start', { pw: getPW(), mode: mode });
 
@@ -156,52 +161,42 @@
     window.onload = () => {
         const savedName = localStorage.getItem('quiz_nickname');
         if (savedName) document.getElementById('nickname-input').value = savedName;
-
-        const prizeImages = [
-        "https://i.imgur.com/yXL0cU8.jpeg?1", // 1번 경품
-        "https://i.imgur.com/eSmoPX4.jpeg",
-        "https://i.imgur.com/ZgfVo57.jpeg"
-    ];
-        
-        // 경품 목록 생성 (1~20번)
-        const prizeGrid = document.getElementById('prize-list');
-
-        for(let i=1; i<=20; i++) {
-        // 배열 인덱스는 0부터 시작하므로 i-1을 사용합니다.
-        const imgSrc = prizeImages[i-1] || ""; 
-        
-        prizeGrid.innerHTML += `
-            <div class="prize-item">
-                <b style="font-size: 1.2rem; color: #2c3e50;">${i}번</b><br>
-                ${imgSrc 
-                    ? `<img src="${imgSrc}" style="width:100%; border-radius:8px; margin-top:8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" onerror="this.src='https://via.placeholder.com/150?text=Error'">` 
-                    : `<div style="margin-top:10px; color:#999; font-size:0.8rem;">이미지 준비중</div>`
-                }
-            </div>`;
-    }};
+    };
 
     function renderPrizes(winners = {}) {
         const prizeGrid = document.getElementById('prize-list');
-        if(!prizeGrid) return;
-        
+        if (!prizeGrid) return;
         prizeGrid.innerHTML = "";
-        for(let i=1; i<=20; i++) {
-            const winnerName = winners[i];
-            const isSoldOut = !!winnerName;
-            const imgSrc = prizeImages[i-1] || "https://via.placeholder.com/150?text=Prize";
+
+        for (let i = 1; i <= 20; i++) {
+            const winner = winners[i];
+            const isSoldOut = !!winner;
+            const imgSrc = prizeImages[i - 1] || "https://via.placeholder.com/150?text=No+Image";
 
             prizeGrid.innerHTML += `
-                <div class="prize-item ${isSoldOut ? 'sold-out' : ''}" id="prize-${i}">
+                <div class="prize-item ${isSoldOut ? 'sold-out' : ''}">
                     <b>${i}번</b><br>
-                    <img src="${isSoldOut ? SOLD_OUT_IMG : imgSrc}" style="width:100%; border-radius:8px; margin-top:5px;">
-                    ${isSoldOut ? `<div class="sold-out-stamp">SOLD OUT</div><div class="winner-label">🏆 ${winnerName}</div>` : ''}
+                    <img src="${imgSrc}">
+                    ${isSoldOut ? `<div class="sold-out-stamp">품절</div><div class="winner-name">🏆 ${winner}</div>` : ''}
                     
-                    <div class="claim-box" style="display: ${amIShowingIDs && !isSoldOut ? 'block' : 'none'}">
-                        <input type="text" id="winner-input-${i}" placeholder="이름" style="width:60px; font-size:0.7rem; padding:3px;">
-                        <button onclick="claimPrize(${i})" style="font-size:0.7rem; padding:3px;">저장</button>
+                    <div class="admin-input" id="admin-prize-${i}" style="display: ${amIShowingIDs && !isSoldOut ? 'block' : 'none'}">
+                        <input type="text" id="input-prize-${i}" placeholder="당첨자" style="width:60px; font-size:0.7rem;">
+                        <button onclick="saveWinner(${i})" style="font-size:0.7rem;">저장</button>
                     </div>
                 </div>`;
         }
+    }
+    function saveWinner(id) {
+        const name = document.getElementById(`input-prize-${id}`).value;
+        if (!name) return alert("이름 입력!");
+        socket.emit('claim_prize', { pw: getPW(), prizeId: id, winnerName: name });
+    }
+
+    function toggleLocalIDView() {
+        if (getPW() !== "1224") return alert("비번 틀림");
+        amIShowingIDs = !amIShowingIDs;
+        renderUserList(); // 사이드바 갱신
+        socket.emit('request_prize_sync'); // 서버에 현재 경품 데이터 요청 (또는 로컬 winners 저장본 사용)
     }
 
     // 당첨자 등록 함수 (방장용)
@@ -228,7 +223,7 @@
             const lines = document.querySelectorAll('#desc-container .fade-in-text');
             lines.forEach((line, index) => { setTimeout(() => line.classList.add('visible'), index * 1000); });
         }
-        if(scene === 'prizes') renderPrizes({});
+        if (scene === 'prizes') socket.emit('request_prize_sync');
     });
 
     socket.on('update_user_list', (data) => { lastPlayersData = data.players; renderUserList(); });
