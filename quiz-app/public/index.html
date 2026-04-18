@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>이 송 퀴 Premium Final</title>
+    <title>이 송 퀴 ver 1.2</title>
     <style>
         :root { --bg: #0f0f0f; --surf: #1a1a1a; --card: #242424; --primary: #007aff; --accent: #ffd60a; --text: #fff; --dim: #a0a0a0; }
         body { font-family: sans-serif; background: var(--bg); color: var(--text); margin: 0; padding-bottom: 80px; }
@@ -132,9 +132,17 @@
 
     function joinGame() {
         const nick = document.getElementById('nickname-input').value;
-        if(!nick) return alert("닉네임!");
-        socket.emit('join_waiting_room', { userID: 'u_'+Math.random().toString(36).substr(2,9), nickname: nick });
-        alert("접속됨!");
+        if(!nick) return alert("닉네임을 입력하세요!");
+        
+        // 브라우저 로컬 스토리지에서 ID를 가져오거나 없으면 새로 생성하여 저장
+        let userID = localStorage.getItem('quiz_id');
+        if(!userID) {
+            userID = 'u_' + Math.random().toString(36).substr(2, 9);
+            localStorage.setItem('quiz_id', userID);
+        }
+        
+        socket.emit('join_waiting_room', { userID, nickname: nick });
+        alert("접속되었습니다!");
     }
 
     function switchTab(t) {
@@ -184,17 +192,46 @@
     }
 
     socket.on('next_question', d => {
-        switchTab('home'); document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+        switchTab('home');
+        document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
         document.getElementById('screen-quiz').classList.add('active');
         document.getElementById('question-text').innerText = d.q;
-        const area = document.getElementById('choices-area'); area.innerHTML = '';
+        
+        // 문제 영역과 보기 영역을 다시 보이게 설정
+        const area = document.getElementById('choices-area');
+        area.innerHTML = '';
+        area.style.display = 'block'; // [핵심] 이 코드가 누락되어 보기가 안 보였던 것입니다.
+        
         d.a.forEach((choice, i) => {
-            const btn = document.createElement('button'); btn.className = 'btn-choice'; btn.innerText = choice;
-            btn.onclick = () => { if(d.type==='multi'||d.type==='balance') btn.classList.toggle('selected'); else { socket.emit('submit_answer', [i]); area.style.display='none'; } };
+            const btn = document.createElement('button');
+            btn.className = 'btn-choice';
+            btn.innerText = choice;
+            btn.onclick = () => {
+                if(d.type==='multi'||d.type==='balance') {
+                    btn.classList.toggle('selected');
+                } else {
+                    socket.emit('submit_answer', [i]);
+                    area.style.display = 'none'; // 정답 클릭 시 영역 숨김
+                }
+            };
             area.appendChild(btn);
         });
-        document.getElementById('submit-btn').style.display = (d.type==='multi'||d.type==='balance'?'block':'none');
+        
+        const submitBtn = document.getElementById('submit-btn');
+        submitBtn.style.display = (d.type==='multi'||d.type==='balance' ? 'block' : 'none');
     });
+
+    function toggleSidebar() {
+        const content = document.getElementById('sidebar-content');
+        const btn = document.getElementById('toggle-sidebar-btn');
+        if(content.style.display === 'block') {
+            content.style.display = 'none';
+            btn.innerText = '▼';
+        } else {
+            content.style.display = 'block';
+            btn.innerText = '▲';
+        }
+    }
 
     function finalSubmit() {
         const sel = Array.from(document.querySelectorAll('.btn-choice.selected')).map(b => Array.from(b.parentNode.children).indexOf(b));

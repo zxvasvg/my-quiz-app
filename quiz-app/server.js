@@ -60,7 +60,14 @@ function startNextQuestion() {
 io.on('connection', (socket) => {
     socket.on('join_waiting_room', (data) => {
         const { userID, nickname } = data;
-        players[userID] = { userID, nickname, score: 0, answered: false, online: true, socketID: socket.id };
+        // [수정] 기존 유저가 있으면 정보만 업데이트(점수 유지), 없으면 신규 생성
+        if (players[userID]) {
+            players[userID].nickname = nickname;
+            players[userID].online = true;
+            players[userID].socketID = socket.id;
+        } else {
+            players[userID] = { userID, nickname, score: 0, answered: false, online: true, socketID: socket.id };
+        }
         socket.userID = userID;
         broadcastUserList();
         socket.emit('prize_updated', prizeWinners);
@@ -71,7 +78,8 @@ io.on('connection', (socket) => {
             if (gameState === "scene1") {
                 currentBank = (data.mode === 'tutorial') ? tutorialBank : mainBank;
                 currentQuestionIndex = -1;
-                Object.values(players).forEach(p => p.score = 0);
+                // 새 게임 시작 시에만 점수 0으로 리셋
+                Object.values(players).forEach(p => { p.score = 0; p.answered = false; });
                 offlinePlayers = {};
                 offlineData.forEach(off => offlinePlayers[off.userID] = { userID: off.userID, nickname: off.nickname, score: 0, online: false });
                 gameState = "scene2";
