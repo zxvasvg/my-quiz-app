@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>이 송 퀴 ver 1.5 </title>
+    <title>이 송 퀴 ver 1.6</title>
     <style>
         body { font-family: sans-serif; text-align: center; background: #f0f2f5; margin: 0; }
         #main-container { display: flex; min-height: 100vh; }
@@ -120,13 +120,28 @@
     window.onload = () => {
         const savedName = localStorage.getItem('quiz_nickname');
         if (savedName) document.getElementById('nickname-input').value = savedName;
+
+        const prizeImages = [
+        "https://cdn.discordapp.com/attachments/1495086885218025513/1495086938472972299/01.jpg?ex=69e4f7b7&is=69e3a637&hm=254ff13f424c905c56fc0453dbd8651950384bf008746378cfa6dca108efa3b3&", // 1번 경품
+        "https://cdn.discordapp.com/attachments/1495086885218025513/1495092072854851604/02_test.jpg?ex=69e4fc7f&is=69e3aaff&hm=783438a19019623e72f514dda56e3fc331fcee09614d770d7ec6e59d9b23e791&"
+    ];
         
         // 경품 목록 생성 (1~20번)
         const prizeGrid = document.getElementById('prize-list');
-        for(let i=1; i<=20; i++) {
-            prizeGrid.innerHTML += `<div class="prize-item"><b>${i}번</b><br><small>이미지 준비중</small></div>`;
-        }
-    };
+
+        for(let i=1; i<=20; i++) {{
+        // 배열 인덱스는 0부터 시작하므로 i-1을 사용합니다.
+        const imgSrc = prizeImages[i-1] || ""; 
+        
+        prizeGrid.innerHTML += `
+            <div class="prize-item">
+                <b style="font-size: 1.2rem; color: #2c3e50;">${i}번</b><br>
+                ${imgSrc 
+                    ? `<img src="${imgSrc}" style="width:100%; border-radius:8px; margin-top:8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" onerror="this.src='https://via.placeholder.com/150?text=Error'">` 
+                    : `<div style="margin-top:10px; color:#999; font-size:0.8rem;">이미지 준비중</div>`
+                }
+            </div>`;
+    }};
 
     function changeScreen(id) {
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
