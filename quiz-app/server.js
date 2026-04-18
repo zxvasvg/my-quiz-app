@@ -116,7 +116,7 @@ io.on('connection', (socket) => {
             io.emit('prize_updated', prizeWinners); // 모든 유저에게 품절 현황 전송
         }
     });
-    
+
     socket.on('request_prize_sync', () => {
         socket.emit('prize_updated', prizeWinners);
     });
@@ -186,6 +186,20 @@ io.on('connection', (socket) => {
             const all = [...Object.values(players), ...Object.values(offlinePlayers)];
             const sorted = all.sort((a, b) => b.score - a.score);
             io.emit('show_mid_rank', sorted.map((p, i) => ({ rank: i + 1, name: p.nickname, score: p.score, type: i < 3 ? 'full' : 'scoreOnly' })));
+        }
+    });
+
+    socket.on('request_final_rank', (password) => {
+        if (password === HOST_PASSWORD) {
+            const all = [...Object.values(players), ...Object.values(offlinePlayers)];
+            const sorted = all.sort((a, b) => b.score - a.score);
+            // 모든 유저를 'full' 타입으로 전송
+            io.emit('show_mid_rank', sorted.map((p, i) => ({ 
+                rank: i + 1, 
+                name: p.nickname, 
+                score: p.score, 
+                type: 'full' 
+            })));
         }
     });
 

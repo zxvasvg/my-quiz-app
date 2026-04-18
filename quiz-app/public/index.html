@@ -68,25 +68,33 @@
     <div id="game-area">
         <div id="screen-scene1" class="screen active"><h1>🎮 대기중</h1><input type="text" id="nickname-input" placeholder="닉네임"><button onclick="joinGame()">입장</button></div>
         <div id="screen-quiz" class="screen"><h2 id="question-text"></h2><div id="choices-area"></div></div>
-
-        <div id="screen-prizes" class="screen">
-            <h2>🎁 행운의 경품 목록</h2>
-            <div class="prize-grid" id="prize-list"></div>
-        </div>
+        <div id="screen-prizes" class="screen"><h2>🎁 행운의 경품 목록</h2><div class="prize-grid" id="prize-list"></div></div>
+        <div id="screen-mid-rank" class="screen"><h2>📊 순위 발표</h2><div id="mid-rank-container"></div></div>
 
         <div id="host-controller">
             <input type="password" id="host-pw" style="width:40px" placeholder="PW">
-            <button onclick="socket.emit('request_start', getPW())">게임시작</button>
+            <button onclick="socket.emit('request_start', {pw:getPW(), mode:'main'})">게임시작</button>
+            <button onclick="socket.emit('request_reveal', getPW())">정답공개</button>
+            <button onclick="socket.emit('request_mid_rank', getPW())">순위(Top3)</button>
+            <button onclick="socket.emit('request_final_rank', getPW())" style="background:#6c5ce7">최종순위(전원)</button>
             <button onclick="socket.emit('request_scene', {pw:getPW(), scene:'prizes'})">경품</button>
             <button onclick="toggleLocalIDView()" style="background:gray">관리(ID/수정)</button>
         </div>
     </div>
-    <div id="user-sidebar"><h3>👥 참여자</h3><div id="sidebar-user-list"></div></div>
+
+    <div id="user-sidebar">
+        <h3 style="display:flex; justify-content:space-between; align-items:center;">
+            👥 참여자 
+            <small onclick="toggleHostPanel()" style="color:#4a90e2; cursor:pointer; font-size:0.8rem; background:#ebf5ff; padding:2px 6px; border-radius:4px; border:1px solid #4a90e2;">관리</small>
+        </h3>
+        <div id="sidebar-user-list"></div>
+    </div>
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
     const socket = io();
+
     let currentQuestionIndex = -1; 
     let lastPlayersData = [];
     let amIShowingIDs = false; 
@@ -115,6 +123,11 @@
     function changeScreen(id) {
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
         document.getElementById('screen-' + id).classList.add('active');
+    }
+
+    function toggleHostPanel() {
+        const panel = document.getElementById('host-controller');
+        panel.style.display = (panel.style.display === 'flex') ? 'none' : 'flex';
     }
 
     function toggleLocalIDView() {
@@ -184,6 +197,18 @@
     socket.on('change_scene', (scene) => {
         changeScreen(scene);
         if (scene === 'prizes') socket.emit('request_prize_sync'); 
+    });
+    
+    socket.on('show_mid_rank', (formattedRank) => {
+        changeScreen('mid-rank');
+        const container = document.getElementById('mid-rank-container');
+        container.innerHTML = formattedRank.map(r => `
+            <div style="padding:12px; margin:8px; background:white; border-radius:10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border-left: 5px solid ${r.rank <= 3 ? '#4a90e2' : '#ddd'};">
+                <b style="font-size:1.1rem;">${r.rank}등</b> 
+                <span style="margin-left:10px; font-weight:bold;">${r.type === 'full' ? r.name : '***'}</span> 
+                <span style="float:right; color:#666;">${r.score}점</span>
+            </div>
+        `).join('');
     });
 
     function renderUserList() {
