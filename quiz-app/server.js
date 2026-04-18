@@ -77,6 +77,7 @@ io.on('connection', (socket) => {
         players[userID] = { ...players[userID], userID, nickname, score: players[userID]?.score || 0, answered: false, isCorrect: false, socketID: socket.id, online: true };
         socket.userID = userID;
         broadcastUserList();
+        socket.emit('prize_updated', prizeWinners); // 접속 시 현재 경품 현황 전송
     });
 
     // 퀴즈 시작 (어떤 뱅크를 쓸지 결정)
@@ -114,6 +115,10 @@ io.on('connection', (socket) => {
             prizeWinners[data.prizeId] = data.winnerName;
             io.emit('prize_updated', prizeWinners); // 모든 유저에게 품절 현황 전송
         }
+    });
+    
+    socket.on('request_prize_sync', () => {
+        socket.emit('prize_updated', prizeWinners);
     });
 
     socket.on('request_reset', (password) => {

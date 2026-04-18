@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>이 송 퀴 ver 1.62</title>
+    <title>이 송 퀴 ver 1.63</title>
     <style>
         body { font-family: sans-serif; text-align: center; background: #f0f2f5; margin: 0; }
         #main-container { display: flex; min-height: 100vh; }
@@ -166,26 +166,29 @@
     function renderPrizes(winners = {}) {
         const prizeGrid = document.getElementById('prize-list');
         if (!prizeGrid) return;
-        prizeGrid.innerHTML = "";
-
+        
+        prizeGrid.innerHTML = ""; // 기존 내용 비우기
         for (let i = 1; i <= 20; i++) {
-            const winner = winners[i];
+            const winner = winners[i]; // 해당 번호에 당첨자가 있는지 확인
             const isSoldOut = !!winner;
+            // 배열은 0부터 시작하므로 i-1 사용
             const imgSrc = prizeImages[i - 1] || "https://via.placeholder.com/150?text=No+Image";
 
             prizeGrid.innerHTML += `
                 <div class="prize-item ${isSoldOut ? 'sold-out' : ''}">
                     <b>${i}번</b><br>
-                    <img src="${imgSrc}">
+                    <img src="${isSoldOut ? (typeof SOLD_OUT_IMG !== 'undefined' ? SOLD_OUT_IMG : imgSrc) : imgSrc}" 
+                         style="width:100%; border-radius:8px; margin-top:5px;">
                     ${isSoldOut ? `<div class="sold-out-stamp">품절</div><div class="winner-name">🏆 ${winner}</div>` : ''}
                     
-                    <div class="admin-input" id="admin-prize-${i}" style="display: ${amIShowingIDs && !isSoldOut ? 'block' : 'none'}">
+                    <div class="admin-input" style="display: ${amIShowingIDs && !isSoldOut ? 'block' : 'none'}">
                         <input type="text" id="input-prize-${i}" placeholder="당첨자" style="width:60px; font-size:0.7rem;">
                         <button onclick="saveWinner(${i})" style="font-size:0.7rem;">저장</button>
                     </div>
                 </div>`;
         }
     }
+
     function saveWinner(id) {
         const name = document.getElementById(`input-prize-${id}`).value;
         if (!name) return alert("이름 입력!");
@@ -223,13 +226,16 @@
             const lines = document.querySelectorAll('#desc-container .fade-in-text');
             lines.forEach((line, index) => { setTimeout(() => line.classList.add('visible'), index * 1000); });
         }
-        if (scene === 'prizes') socket.emit('request_prize_sync');
+        if (scene === 'prizes') {
+            renderPrizes({}); // 우선 빈 당첨자 목록으로 이미지를 먼저 그립니다.
+            socket.emit('request_prize_sync'); // 그 후 서버에 최신 당첨자 정보를 요청합니다.
+        }
     });
 
     socket.on('update_user_list', (data) => { lastPlayersData = data.players; renderUserList(); });
 
     socket.on('prize_updated', (winners) => {
-        renderPrizes(winners);
+        renderPrizes(winners); // 최신 데이터로 화면을 갱신합니다.
     });
 
     function renderUserList() {
