@@ -57,9 +57,14 @@
 
         <div id="tab-home" class="tab-content active">
             <div id="screen-scene1" class="screen active">
-                <h1 style="font-size: 2.5rem; margin-top: 30px;">이 송 퀴</h1>
-                <input type="text" id="nickname-input" placeholder="닉네임 입력"><br>
-                <button onclick="joinGame()" style="padding:15px 50px; background:var(--primary); color:white; margin-top:20px; width:70%;">입장하기</button>
+            <h1 style="font-size: 2.5rem; margin-top: 30px;">이 송 퀴</h1>
+            <input type="text" id="nickname-input" placeholder="닉네임 입력">
+            <button onclick="joinGame()" style="padding:15px 40px; background: var(--primary-color); color:white; margin-top:15px; width:80%;">퀴즈 참여하기</button>
+    
+             <p style="margin-top: 20px; color: var(--text-dim); font-size: 0.9rem;">
+                퀴즈 참여 전이신가요? <br>
+                <span onclick="switchTab('prizes')" style="color: var(--accent-color); text-decoration: underline; cursor: pointer;">애장품 목록 먼저 구경하기</span>
+             </p>
             </div>
             <div id="screen-scene2" class="screen">
                 <h2 style="color:var(--primary);">📜 퀴즈 안내</h2>
@@ -132,6 +137,15 @@
     ];
     for(let i=prizeList.length; i<20; i++) prizeList.push({ img: "https://placehold.co/300x300/222/888?text=Prize", donor: "준비중" });
 
+    window.onload = () => {
+        // 1. 저장된 닉네임 불러오기
+        const savedName = localStorage.getItem('quiz_nickname');
+        if (savedName) document.getElementById('nickname-input').value = savedName;
+        
+        // 2. 접속 즉시 경품 데이터 동기화 요청 (참가 안 한 사람도 볼 수 있게)
+        socket.emit('request_prize_sync');
+    };
+    
     const getPW = () => document.getElementById('host-pw').value;
     const sendStart = (mode) => socket.emit('request_start', { pw: getPW(), mode });
 
