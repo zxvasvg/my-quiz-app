@@ -47,6 +47,39 @@
         @keyframes scrollUp { from { bottom: -100%; } to { bottom: 150%; } }
         
         input { padding: 12px; border-radius: 8px; background: #2c2c2e; color: white; border: 1px solid #333; }
+
+        #image-modal {
+        display: none; /* 기본은 숨김 */
+        position: fixed;
+        z-index: 5000; /* 최상단에 위치 */
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        background-color: rgba(0, 0, 0, 0.9); /* 배경 어둡게 */
+        backdrop-filter: blur(5px); /* 배경 흐림 효과 */
+        justify-content: center;
+        align-items: center;
+        cursor: zoom-out;
+    }
+
+    #modal-img {
+        max-width: 90%;
+        max-height: 80%;
+        border-radius: 15px;
+        box-shadow: 0 0 30px rgba(255, 255, 255, 0.1);
+        transform: scale(0.9);
+        transition: transform 0.3s ease;
+    }
+
+    #image-modal.active #modal-img {
+        transform: scale(1);
+    }
+
+    .modal-close-hint {
+        position: absolute;
+        bottom: 30px;
+        color: var(--text-dim);
+        font-size: 0.9rem;
+    }
     </style>
 </head>
 <body>
@@ -119,6 +152,11 @@
 <div id="bottom-nav">
     <div class="nav-item active" id="nav-home" onclick="switchTab('home')">🏠<br>홈</div>
     <div class="nav-item" id="nav-prizes" onclick="switchTab('prizes')">🎁<br>애장품</div>
+</div>
+
+<div id="image-modal" onclick="closeImageModal()">
+    <img id="modal-img" src="" alt="Enlarged Prize">
+    <div class="modal-close-hint">화면을 클릭하면 닫힙니다</div>
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
@@ -266,20 +304,47 @@
         socket.emit('submit_answer', sel); document.getElementById('choices-area').style.display = 'none'; document.getElementById('submit-btn').style.display = 'none';
     }
 
+    function openImageModal(src) {
+        const modal = document.getElementById('image-modal');
+        const modalImg = document.getElementById('modal-img');
+    
+        modalImg.src = src;
+        modal.style.display = 'flex';
+    
+    // 약간의 지연 후 애니메이션 효과
+        setTimeout(() => {
+            modal.classList.add('active');
+        }, 10);
+    }
+
+    // [추가] 이미지 모달 닫기
+    function closeImageModal() {
+        const modal = document.getElementById('image-modal');
+        modal.classList.remove('active');
+        setTimeout(() => {
+            modal.style.display = 'none';
+        }, 300);
+    }
+
     socket.on('prize_updated', winners => {
-        document.getElementById('prize-list').innerHTML = prizeList.map((p, i) => {
-            const id = i+1, win = winners[id];
-            return `<div class="prize-item">
-                <div style="position:absolute; top:5px; left:5px; background:rgba(0,0,0,0.5); padding:2px 6px; border-radius:4px; font-size:0.7rem;">${id}번</div>
-                <img src="${p.img}" style="${win?'filter:grayscale(1) brightness(0.3)':''}">
-                ${win ? `<div class="sold-out-footer">🎁 주인: ${p.donor}<br>🏆 당첨: ${win}</div>` : 
-                `<div style="padding:10px; display:${amIAdmin?'block':'none'}">
-                    <input type="text" id="win-${id}" placeholder="이름" style="width:60px; font-size:0.7rem; padding:3px;">
-                    <button onclick="socket.emit('claim_prize', {pw:getPW(), prizeId:${id}, winnerName:document.getElementById('win-${id}').value})" style="font-size:0.7rem; padding:3px 6px;">저장</button>
-                </div>`}
-            </div>`;
-        }).join('');
-    });
+    const grid = document.getElementById('prize-list');
+    grid.innerHTML = prizeList.map((p, i) => {
+        const id = i+1, win = winners[id];
+        return `<div class="prize-item">
+            <div style="position:absolute; top:5px; left:5px; background:rgba(0,0,0,0.5); padding:2px 6px; border-radius:4px; font-size:0.7rem;">${id}번</div>
+            
+            <img src="${p.img}" 
+                 onclick="openImageModal('${p.img}')" 
+                 style="cursor:zoom-in; ${win?'filter:grayscale(1) brightness(0.3)':''}">
+            
+            ${win ? `<div class="sold-out-footer">🎁 주인: ${p.donor}<br>🏆 당첨: ${win}</div>` : 
+            `<div style="padding:10px; display:${amIAdmin?'block':'none'}">
+                <input type="text" id="win-${id}" placeholder="이름" style="width:60px; font-size:0.7rem; padding:3px;">
+                <button onclick="socket.emit('claim_prize', {pw:getPW(), prizeId:${id}, winnerName:document.getElementById('win-${id}').value})" style="font-size:0.7rem; padding:3px 6px;">저장</button>
+            </div>`}
+        </div>`;
+    }).join('');
+});
 
    // [수정] 정답 및 결과 공개 수신 핸들러
     socket.on('reveal_answer', d => {
