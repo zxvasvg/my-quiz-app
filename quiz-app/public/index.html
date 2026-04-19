@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>이 송 퀴 ver 1.2</title>
+    <title>이 송 퀴 ver 1.21</title>
     <style>
         :root { --bg: #0f0f0f; --surf: #1a1a1a; --card: #242424; --primary: #007aff; --accent: #ffd60a; --text: #fff; --dim: #a0a0a0; }
         body { font-family: sans-serif; background: var(--bg); color: var(--text); margin: 0; padding-bottom: 80px; }
@@ -252,12 +252,43 @@
         }).join('');
     });
 
+   // [수정] 정답 및 결과 공개 수신 핸들러
     socket.on('reveal_answer', d => {
         document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
         document.getElementById('screen-reveal').classList.add('active');
+        
         const c = document.getElementById('reveal-content');
-        if(d.type === "balance") c.innerHTML = d.winners.map(idx => `<p>🏆 ${d.options[idx]} 선택자 정답!</p>`).join('');
-        else c.innerText = "정답자: " + (d.allCorrectNames.join(', ') || "없음");
+        c.innerHTML = ""; // 기존 내용 초기화
+
+        if (d.type === "balance") {
+            // 밸런스 게임: 다수결에 속한 모든 사람의 이름을 세로로 나열
+            let html = "";
+            d.winners.forEach(idx => {
+                const optionName = d.options[idx];
+                const winnerList = d.votersByOption[idx]; // 서버에서 보내준 명단
+                
+                html += `
+                    <div style="margin-bottom: 20px; border: 1px solid var(--primary); padding: 15px; border-radius: 12px; background: rgba(0, 122, 255, 0.1);">
+                        <h3 style="color: var(--primary); margin-top: 0;">🏆 ${optionName} 선택자 (승리!)</h3>
+                        <div style="line-height: 1.8; font-size: 1.1rem;">
+                            ${winnerList.length > 0 ? winnerList.join('<br>') : "선택자가 없습니다."}
+                        </div>
+                    </div>
+                `;
+            });
+            c.innerHTML = html;
+        } else {
+            // 일반 퀴즈: 정답자 명단을 세로로 나열
+            const namesVertical = d.allCorrectNames.length > 0 ? d.allCorrectNames.join('<br>') : "정답자가 없습니다.";
+            c.innerHTML = `
+                <div style="border: 1px solid var(--success); padding: 15px; border-radius: 12px; background: rgba(52, 199, 89, 0.1);">
+                    <h3 style="color: var(--success); margin-top: 0;">🎯 정답자 명단</h3>
+                    <div style="line-height: 1.8; font-size: 1.1rem;">
+                        ${namesVertical}
+                    </div>
+                </div>
+            `;
+        }
     });
 
     socket.on('show_mid_rank', f => {
