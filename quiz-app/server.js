@@ -45,7 +45,7 @@ const mainBank = [
     { type: "balance", q: "16.[밸런스] 호감있는 이성에게 설레는 순간..?", a: ["갑작스러운 스킨십(급정거, 손잡기)", "갑자기 나한테 여행가서 찍은 자기 사진을 보내줌", "밤 늦게 갑자기 전화옴"], desc: "어떤것이 좀 더 설렐까요..?" },
 ];
 
-const offlineData = [];
+let offlineData = [];
 
 async function updateOfflineDataFromSheet() {
     try {
