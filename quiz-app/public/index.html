@@ -122,7 +122,10 @@
     let amIAdmin = false, lastPlayers = [];
     const prizeList = [
         { img: "https://i.imgur.com/yXL0cU8.jpg", donor: "이태빈" },
-        { img: "https://i.imgur.com/eSmoPX4.jpeg", donor: "양예람" },
+        { img: "https://i.imgur.com/AR3hcaS.png", donor: "이재문" },
+        { img: "https://i.imgur.com/7BbylT8.png", donor: "양애리" },
+        { img: "https://i.imgur.com/AnKzYed.jpeg", donor: "이광욱" },
+        { img: "https://i.imgur.com/WcmM5Bb.png", donor: "박현규" },
         { img: "https://i.imgur.com/ZgfVo57.jpeg", donor: "김유정" }
     ];
     for(let i=prizeList.length; i<20; i++) prizeList.push({ img: "https://placehold.co/300x300/222/888?text=Prize", donor: "준비중" });
@@ -191,7 +194,7 @@
             </div>`).join('');
     }
 
-    // [수정] 문제 수신 시 보기 영역 강제 표시
+    // [수정] 문제 수신 시 보기 영역 생성 로직
     socket.on('next_question', d => {
         switchTab('home');
         document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
@@ -200,23 +203,32 @@
         
         const area = document.getElementById('choices-area');
         area.innerHTML = '';
-        area.style.display = 'block'; // [핵심] 정답 제출 시 숨겨졌던 영역을 다시 보임
+        area.style.display = 'block'; 
         
         d.a.forEach((choice, i) => {
             const btn = document.createElement('button');
             btn.className = 'btn-choice';
             btn.innerText = choice;
+            
             btn.onclick = () => {
-                if(d.type==='multi'||d.type==='balance') {
+                if (d.type === 'balance') {
+                    // [핵심 수정] 밸런스 게임일 때는 다른 버튼의 'selected' 클래스를 모두 제거
+                    document.querySelectorAll('.btn-choice').forEach(b => b.classList.remove('selected'));
+                    btn.classList.add('selected');
+                } else if (d.type === 'multi') {
+                    // 다중 선택 퀴즈일 때만 기존처럼 토글 유지
                     btn.classList.toggle('selected');
                 } else {
+                    // 일반 단일 선택 퀴즈
                     socket.emit('submit_answer', [i]);
-                    area.style.display = 'none'; // 단일 선택 시 영역 숨김
+                    area.style.display = 'none';
                 }
             };
             area.appendChild(btn);
         });
-        document.getElementById('submit-btn').style.display = (d.type==='multi'||d.type==='balance' ? 'block' : 'none');
+        
+        const submitBtn = document.getElementById('submit-btn');
+        submitBtn.style.display = (d.type === 'multi' || d.type === 'balance' ? 'block' : 'none');
     });
 
     function toggleSidebar() {
