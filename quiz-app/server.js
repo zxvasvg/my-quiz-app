@@ -2,9 +2,14 @@ const express = require('express');
 const app = express();
 const http = require('http').createServer(app);
 const io = require('socket.io')(http);
+const axios = require('axios');
+const csv = require('csv-parser');
+const { Readable } = require('stream');
+
 app.use(express.static('public'));
 
 const HOST_PASSWORD = "1224"; // 방장 비밀번호
+const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTv4PKjnrs37ihCMfDo0fpOup8uOHm1Wt_cvujNWrmS-iDebWToDTdG-t6kOW5X8pdnnGA3zK3d1EnT/pub?output=csv";
 
 let players = {};
 let offlinePlayers = {};
@@ -17,7 +22,8 @@ let prizeWinners = {};
 const tutorialBank = [
     { type: "single", q: "[연습] 4지선다: 1+1은?", a: ["1", "2", "3", "4"], cor: [1], desc: "연습용 4지선다입니다." },
     { type: "ox", q: "[연습] OX: 고래는 포유류이다?", a: ["O", "X"], cor: [0], desc: "연습용 OX입니다." },
-    { type: "balance", q: "[연습] 밸런스: 짜장 vs 짬뽕?", a: ["짜장", "짬뽕"], desc: "연습용 밸런스입니다." }
+    { type: "balance", q: "[연습] 밸런스: 짜장 vs 짬뽕?", a: ["짜장", "짬뽕"], desc: "연습용 밸런스입니다." },
+    { type: "balance", q: "[연습] 밸런스: A조 vs B조", a: ["A", "B"], desc: "연습용 밸런스입니다." }
 ];
 
 const mainBank = [
@@ -39,10 +45,51 @@ const mainBank = [
     { type: "balance", q: "16.[밸런스] 호감있는 이성에게 설레는 순간..?", a: ["갑작스러운 스킨십(급정거, 손잡기)", "갑자기 나한테 여행가서 찍은 자기 사진을 보내줌", "밤 늦게 갑자기 전화옴"], desc: "어떤것이 좀 더 설렐까요..?" },
 ];
 
-const offlineData = [
-    { userID: "off_01", nickname: "JJO", answers: [[1], [0], [0]] },
-    { userID: "off_02", nickname: "choyoung", answers: [[1], [1], [1]] }
-];
+const offlineData = [];
+
+async function updateOfflineDataFromSheet() {
+    try {
+        const response = await axios.get(GOOGLE_SHEET_CSV_URL);
+        const results = [];
+        const stream = Readable.from(response.data);
+
+        stream.pipe(csv())
+            .on('data', (row) => {
+                const values = Object.values(row); // 행의 모든 값을 배열로 변환
+                
+                // 1. 닉네임 추출 (B열 = 인덱스 1)
+                const nickname = values[1]; 
+
+                // 2. 답안 추출 및 숫자 자르기 (C열 이후 = 인덱스 2부터 끝까지)
+                const answers = values.slice(2).map(val => {
+                    if (!val) return [null]; // 빈 칸 대응
+                    
+                    // 문자열의 첫 번째 글자만 가져와서 숫자로 변환
+                    // 예: '0.O' -> '0' -> 0
+                    const firstChar = val.toString().trim().charAt(0);
+                    const answerIndex = parseInt(firstChar);
+                    
+                    return isNaN(answerIndex) ? [null] : [answerIndex];
+                });
+
+                if (nickname) {
+                    results.push({
+                        userID: `off_${results.length}`,
+                        nickname: nickname,
+                        answers: answers
+                    });
+                }
+            })
+            .on('end', () => {
+                offlineData = results;
+                console.log(`✅ 구글 시트 데이터 동기화 완료 (${offlineData.length}명)`);
+            });
+    } catch (error) {
+        console.error("❌ 구글 시트 로딩 에러:", error.message);
+    }
+}
+
+updateOfflineDataFromSheet();
 
 function broadcastUserList() {
     const all = [...Object.values(players), ...Object.values(offlinePlayers)];
@@ -85,6 +132,13 @@ io.on('connection', (socket) => {
         socket.userID = userID;
         broadcastUserList();
         socket.emit('prize_updated', prizeWinners);
+    });
+
+    socket.on('request_reset', (pw) => {
+        if (pw === HOST_PASSWORD) {
+            updateOfflineDataFromSheet(); // 리셋할 때 시트 최신화
+            // ... 기존 리셋 로직 ...
+        }
     });
 
     socket.on('request_start', (data) => {
