@@ -105,20 +105,34 @@ io.on('connection', (socket) => {
                 Object.values(players).forEach(p => { if (p.answered && p.lastChoice !== undefined) { counts[p.lastChoice]++; votersByOption[p.lastChoice].push(p.nickname); } });
                 offlineData.forEach(off => { 
                     const choice = off.answers[currentQuestionIndex]?.[0];
-                    if (choice !== undefined) { counts[choice]++; votersByOption[choice].push(off.nickname); }
+                    if (choice !== undefined) { 
+                        counts[choice]++; 
+                        votersByOption[choice].push(off.nickname); 
+                    }
                 });
                 const maxVotes = Math.max(...counts);
                 const winners = [];
                 counts.forEach((c, i) => { if (c === maxVotes && maxVotes > 0) winners.push(i); });
+                
                 Object.values(players).forEach(p => { if (p.answered && winners.includes(p.lastChoice)) { p.isCorrect = true; p.score += (10 * scoreMultiplier); } });
+                // 오프라인 유저 밸런스 게임 점수 추가
                 offlineData.forEach(off => { if (winners.includes(off.answers[currentQuestionIndex]?.[0])) offlinePlayers[off.userID].score += (10 * scoreMultiplier); });
+                
                 resultData.counts = counts; resultData.winners = winners; resultData.votersByOption = votersByOption;
             } else {
+                // 일반 퀴즈 정답자 추출 및 오프라인 유저 점수 추가
                 const correctOnline = Object.values(players).filter(p => p.answered && p.isCorrect).map(p => p.nickname);
-                const correctOffline = Object.values(offlinePlayers).filter(off => {
-                    const offAns = offlineData.find(d => d.userID === off.userID).answers[currentQuestionIndex];
-                    return JSON.stringify(offAns?.sort()) === JSON.stringify(currentQuiz.cor.sort());
-                }).map(p => p.nickname);
+                const correctOffline = [];
+                
+                offlineData.forEach(off => {
+                    const offAns = off.answers[currentQuestionIndex];
+                    const isCorrect = JSON.stringify(offAns?.sort()) === JSON.stringify(currentQuiz.cor.sort());
+                    if (isCorrect) {
+                        offlinePlayers[off.userID].score += (10 * scoreMultiplier);
+                        correctOffline.push(off.nickname);
+                    }
+                });
+                
                 resultData.allCorrectNames = [...correctOnline, ...correctOffline];
                 resultData.totalCorrect = resultData.allCorrectNames.length;
             }
